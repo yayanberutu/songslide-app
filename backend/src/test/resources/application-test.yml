@@ -1,0 +1,17 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:songslide;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  flyway:
+    enabled: false
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+
+songslide:
+  storage:
+    local:
+      root: ./target/test-storage
