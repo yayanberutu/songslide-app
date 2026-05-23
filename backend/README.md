@@ -6,10 +6,11 @@ Current scope:
 
 - Java 17 Spring Boot application scaffold.
 - PostgreSQL datasource configuration through environment variables.
-- Flyway migration support with migrations intentionally deferred to issue #4.
+- Flyway migration support for the canonical MVP catalog schema.
 - Actuator health endpoint support.
 - Local filesystem storage root configuration.
 - Basic startup/context test.
+- Canonical tables: `song_books`, `songs`, `song_arrangements`, `song_source_images`, and `song_exports`.
 
 Planned responsibilities:
 
