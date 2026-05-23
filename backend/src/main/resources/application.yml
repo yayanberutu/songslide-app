@@ -1,0 +1,26 @@
+spring:
+  application:
+    name: songslide-backend
+  profiles:
+    default: local
+
+server:
+  port: ${BACKEND_PORT:8080}
+  servlet:
+    context-path: /api
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: when_authorized
+
+songslide:
+  storage:
+    local:
+      root: ${STORAGE_ROOT:./.local-storage}

@@ -1,6 +1,15 @@
 # Backend
 
-This directory will contain the Spring Boot 3.x backend service.
+Spring Boot 3.x backend service for the SongSlide MVP.
+
+Current scope:
+
+- Java 17 Spring Boot application scaffold.
+- PostgreSQL datasource configuration through environment variables.
+- Flyway migration support with migrations intentionally deferred to issue #4.
+- Actuator health endpoint support.
+- Local filesystem storage root configuration.
+- Basic startup/context test.
 
 Planned responsibilities:
 
@@ -11,4 +20,26 @@ Planned responsibilities:
 - Orchestrate PPTX and PNG export requests through the export service.
 - Use local filesystem storage for the MVP through a storage abstraction.
 
-Runtime implementation is intentionally not included in this scaffold phase.
+## Local Commands
+
+Run tests:
+
+```bash
+mvn test
+```
+
+Start with local PostgreSQL configuration:
+
+```bash
+SPRING_PROFILES_ACTIVE=local \
+DATABASE_URL=jdbc:postgresql://localhost:5432/songslide \
+POSTGRES_USER=songslide \
+POSTGRES_PASSWORD=change-me-local-only \
+mvn spring-boot:run
+```
+
+Check health after startup:
+
+```bash
+curl http://localhost:8080/api/actuator/health
+```
