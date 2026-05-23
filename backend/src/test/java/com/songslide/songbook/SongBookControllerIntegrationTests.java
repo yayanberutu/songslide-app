@@ -9,6 +9,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.songslide.arrangement.SongArrangementRepository;
+import com.songslide.song.SongRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,8 +32,16 @@ class SongBookControllerIntegrationTests {
     @Autowired
     private SongBookRepository songBookRepository;
 
+    @Autowired
+    private SongRepository songRepository;
+
+    @Autowired
+    private SongArrangementRepository songArrangementRepository;
+
     @BeforeEach
     void setUp() {
+        songArrangementRepository.deleteAll();
+        songRepository.deleteAll();
         songBookRepository.deleteAll();
     }
 
