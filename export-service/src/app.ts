@@ -1,7 +1,6 @@
 import express, { type ErrorRequestHandler, type RequestHandler } from "express";
+import { buildPptxFileName, generatePptx, PPTX_MIME_TYPE } from "./pptx-exporter";
 import { exportPayloadSchema, formatValidationIssues } from "./schemas";
-
-type ExportFormat = "PPTX" | "PNG";
 
 interface CreateAppOptions {
   enableRequestLogging?: boolean;
@@ -41,36 +40,65 @@ export function createApp(options: CreateAppOptions = {}) {
     });
   });
 
-  app.post("/export/pptx", createExportStubHandler("PPTX"));
-  app.post("/export/png", createExportStubHandler("PNG"));
+  app.post("/export/pptx", createPptxExportHandler());
+  app.post("/export/png", createPngExportStubHandler());
 
   app.use(jsonErrorHandler);
 
   return app;
 }
 
-function createExportStubHandler(format: ExportFormat): RequestHandler {
+function createPptxExportHandler(): RequestHandler {
+  return async (request, response, next) => {
+    const parsed = exportPayloadSchema.safeParse(request.body);
+
+    if (!parsed.success) {
+      sendValidationError(response, parsed.error);
+      return;
+    }
+
+    try {
+      const buffer = await generatePptx(parsed.data);
+      const fileName = buildPptxFileName(parsed.data);
+
+      response
+        .status(200)
+        .setHeader("Content-Type", PPTX_MIME_TYPE)
+        .setHeader("Content-Disposition", `attachment; filename="${fileName.replace(/"/g, "")}"`)
+        .setHeader("Content-Length", buffer.length.toString())
+        .send(buffer);
+    } catch (error) {
+      next(error);
+    }
+  };
+}
+
+function createPngExportStubHandler(): RequestHandler {
   return (request, response) => {
     const parsed = exportPayloadSchema.safeParse(request.body);
 
     if (!parsed.success) {
-      response.status(400).json({
-        status: "FAILED",
-        code: "VALIDATION_ERROR",
-        message: "Invalid export payload",
-        issues: formatValidationIssues(parsed.error)
-      });
+      sendValidationError(response, parsed.error);
       return;
     }
 
     response.status(202).json({
       status: "NOT_IMPLEMENTED",
       code: "RENDERING_NOT_IMPLEMENTED",
-      message: `${format} rendering is not implemented in issue #15.`,
-      format,
+      message: "PNG rendering is not implemented in issue #16.",
+      format: "PNG",
       slideCount: parsed.data.slides.length
     });
   };
+}
+
+function sendValidationError(response: express.Response, error: Parameters<typeof formatValidationIssues>[0]) {
+  response.status(400).json({
+    status: "FAILED",
+    code: "VALIDATION_ERROR",
+    message: "Invalid export payload",
+    issues: formatValidationIssues(error)
+  });
 }
 
 const jsonErrorHandler: ErrorRequestHandler = (error, _request, response, next) => {
