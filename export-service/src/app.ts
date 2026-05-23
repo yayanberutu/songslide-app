@@ -1,4 +1,5 @@
 import express, { type ErrorRequestHandler, type RequestHandler } from "express";
+import { buildPngZipFileName, generatePngZip, PNG_ZIP_MIME_TYPE } from "./png-exporter";
 import { buildPptxFileName, generatePptx, PPTX_MIME_TYPE } from "./pptx-exporter";
 import { exportPayloadSchema, formatValidationIssues } from "./schemas";
 
@@ -41,7 +42,7 @@ export function createApp(options: CreateAppOptions = {}) {
   });
 
   app.post("/export/pptx", createPptxExportHandler());
-  app.post("/export/png", createPngExportStubHandler());
+  app.post("/export/png", createPngExportHandler());
 
   app.use(jsonErrorHandler);
 
@@ -73,8 +74,8 @@ function createPptxExportHandler(): RequestHandler {
   };
 }
 
-function createPngExportStubHandler(): RequestHandler {
-  return (request, response) => {
+function createPngExportHandler(): RequestHandler {
+  return async (request, response, next) => {
     const parsed = exportPayloadSchema.safeParse(request.body);
 
     if (!parsed.success) {
@@ -82,13 +83,19 @@ function createPngExportStubHandler(): RequestHandler {
       return;
     }
 
-    response.status(202).json({
-      status: "NOT_IMPLEMENTED",
-      code: "RENDERING_NOT_IMPLEMENTED",
-      message: "PNG rendering is not implemented in issue #16.",
-      format: "PNG",
-      slideCount: parsed.data.slides.length
-    });
+    try {
+      const buffer = await generatePngZip(parsed.data);
+      const fileName = buildPngZipFileName(parsed.data);
+
+      response
+        .status(200)
+        .setHeader("Content-Type", PNG_ZIP_MIME_TYPE)
+        .setHeader("Content-Disposition", `attachment; filename="${fileName.replace(/"/g, "")}"`)
+        .setHeader("Content-Length", buffer.length.toString())
+        .send(buffer);
+    } catch (error) {
+      next(error);
+    }
   };
 }
 
