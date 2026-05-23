@@ -4,7 +4,7 @@ Node.js and TypeScript HTTP service for SongSlide export rendering.
 
 This service is stateless. It accepts render-ready payloads prepared by the Spring Boot backend from `song_arrangements.content_json`; it does not read PostgreSQL and does not own song business rules.
 
-Issue #15 only defines the service contract and validation layer. Actual PPTX generation with PptxGenJS and PNG generation with Playwright are intentionally not implemented yet.
+The PPTX endpoint renders binary PowerPoint files with PptxGenJS. PNG generation with Playwright is intentionally not implemented yet.
 
 ## Local Commands
 
@@ -33,11 +33,18 @@ Returns service status.
 
 ### `POST /export/pptx`
 
-Validates a PPTX export payload. Rendering is not implemented in issue #15.
+Validates a PPTX export payload and returns a binary `.pptx` response.
+
+Successful responses use:
+
+```text
+Content-Type: application/vnd.openxmlformats-officedocument.presentationml.presentation
+Content-Disposition: attachment; filename="songslide-export.pptx"
+```
 
 ### `POST /export/png`
 
-Validates a PNG export payload. Rendering is not implemented in issue #15.
+Validates a PNG export payload. PNG rendering is not implemented yet.
 
 ## Valid Sample Payload
 
@@ -64,18 +71,6 @@ Validates a PNG export payload. Rendering is not implemented in issue #15.
 }
 ```
 
-Valid requests currently return `202` with:
-
-```json
-{
-  "status": "NOT_IMPLEMENTED",
-  "code": "RENDERING_NOT_IMPLEMENTED",
-  "message": "PPTX rendering is not implemented in issue #15.",
-  "format": "PPTX",
-  "slideCount": 1
-}
-```
-
 Invalid requests return `400` with validation issues:
 
 ```json
@@ -99,5 +94,6 @@ npm run dev
 curl http://localhost:3002/health
 curl -X POST http://localhost:3002/export/pptx \
   -H 'Content-Type: application/json' \
-  -d @docs/sample-export-payload.json
+  -d @docs/sample-export-payload.json \
+  --output /tmp/songslide-sample.pptx
 ```
