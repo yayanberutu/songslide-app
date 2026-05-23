@@ -1,0 +1,20 @@
+{
+  "slides": [
+    {
+      "title": "KJ 37 - Bila Kurenung Dosaku",
+      "subtitle": "Ayat 1",
+      "metadata": "Do = G | 4 ketuk",
+      "lines": [
+        {
+          "notation": "5 .6 5 5 6 | 1 .2 1 .6",
+          "lyric": "Bi-la ku-re-nung do-sa-ku"
+        }
+      ]
+    }
+  ],
+  "layout": {
+    "theme": "LIGHT",
+    "showNotation": true,
+    "slideSize": "LAYOUT_WIDE"
+  }
+}
