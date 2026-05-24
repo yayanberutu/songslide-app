@@ -9,19 +9,28 @@ import {
   type ArrangementContentJson,
   type RefrainLine,
   type RefrainSection,
+  type SongArrangement,
   type TextOnlyVersesSection,
   type VerseLine,
   type VerseSection
 } from "@/lib/arrangement-api";
+import {
+  createSongExport,
+  exportDownloadHref,
+  type ExportOutputFormat,
+  type ExportRefrainMode,
+  type ExportTheme,
+  type SongExportResponse
+} from "@/lib/export-api";
 import { getSong, type Song } from "@/lib/song-api";
-import { EmptyState, Field, InlineError, LoadingState, SelectInput } from "@/components/ui";
+import { Button, EmptyState, Field, InlineError, LoadingState, SelectInput } from "@/components/ui";
 
 type ArrangementPreviewProps = {
   songId: string;
 };
 
-type RefrainMode = "NONE" | "ONCE_AFTER_ALL_VERSES" | "AFTER_EACH_VERSE";
-type PreviewTheme = "LIGHT" | "DARK";
+type RefrainMode = ExportRefrainMode;
+type PreviewTheme = ExportTheme;
 
 type PreviewLine = {
   notation: string | null;
@@ -44,11 +53,16 @@ const refrainModes: Array<{ value: RefrainMode; label: string }> = [
 
 export function ArrangementPreview({ songId }: ArrangementPreviewProps) {
   const [song, setSong] = useState<Song | null>(null);
+  const [arrangement, setArrangement] = useState<SongArrangement | null>(null);
   const [content, setContent] = useState<ArrangementContentJson>({ structureVersion: "1.0", sections: [] });
   const [selectedVerses, setSelectedVerses] = useState<string[]>([]);
   const [refrainMode, setRefrainMode] = useState<RefrainMode>("AFTER_EACH_VERSE");
   const [theme, setTheme] = useState<PreviewTheme>("LIGHT");
   const [showNotation, setShowNotation] = useState(true);
+  const [outputFormat, setOutputFormat] = useState<ExportOutputFormat>("PPTX");
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [exportResult, setExportResult] = useState<SongExportResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);
 
@@ -62,6 +76,7 @@ export function ArrangementPreview({ songId }: ArrangementPreviewProps) {
           loadOrCreateDefaultArrangement(songId)
         ]);
         setSong(loadedSong);
+        setArrangement(arrangement);
         setContent(normalizeContent(arrangement.contentJson));
       } catch (error) {
         setPageError(errorMessage(error, "Unable to load slide preview"));
@@ -92,6 +107,11 @@ export function ArrangementPreview({ songId }: ArrangementPreviewProps) {
     return buildPreviewSlides(song, content, selectedVerses, refrainMode);
   }, [content, refrainMode, selectedVerses, song]);
 
+  useEffect(() => {
+    setExportError(null);
+    setExportResult(null);
+  }, [outputFormat, refrainMode, selectedVerses, showNotation, theme]);
+
   function toggleVerse(verseNumber: string) {
     setSelectedVerses((current) => {
       if (current.includes(verseNumber)) {
@@ -104,6 +124,45 @@ export function ArrangementPreview({ songId }: ArrangementPreviewProps) {
       const selected = new Set([...current, verseNumber]);
       return availableVerses.filter((availableVerse) => selected.has(availableVerse));
     });
+  }
+
+  async function handleExport() {
+    if (!arrangement) {
+      setExportError("Arrangement is not loaded.");
+      return;
+    }
+    if (selectedVerses.length === 0) {
+      setExportError("Select at least one verse before exporting.");
+      return;
+    }
+
+    setExporting(true);
+    setExportError(null);
+    setExportResult(null);
+    try {
+      const result = await createSongExport(songId, {
+        arrangementId: arrangement.id,
+        selectedVerses,
+        refrainMode,
+        outputFormat,
+        layout: {
+          theme,
+          showNotation,
+          slideSize: "LAYOUT_WIDE"
+        }
+      });
+
+      if (result.status !== "COMPLETED" || !result.downloadUrl) {
+        setExportError(result.errorMessage ?? "Export did not complete.");
+        return;
+      }
+
+      setExportResult(result);
+    } catch (error) {
+      setExportError(errorMessage(error, "Unable to export song"));
+    } finally {
+      setExporting(false);
+    }
   }
 
   if (loading) {
@@ -204,6 +263,46 @@ export function ArrangementPreview({ songId }: ArrangementPreviewProps) {
               />
               Show notation
             </label>
+          </div>
+
+          <div className="space-y-4 rounded-md border border-zinc-200 bg-white p-4">
+            <div>
+              <h2 className="text-base font-semibold text-ink-950">Export</h2>
+              <p className="mt-1 text-sm leading-6 text-ink-500">
+                Generate the selected preview as a PowerPoint file or PNG ZIP.
+              </p>
+            </div>
+            <Field label="Output format">
+              <SelectInput
+                value={outputFormat}
+                onChange={(event) => setOutputFormat(event.target.value as ExportOutputFormat)}
+              >
+                <option value="PPTX">PPTX</option>
+                <option value="PNG">PNG ZIP</option>
+              </SelectInput>
+            </Field>
+            <Button
+              type="button"
+              variant="primary"
+              className="w-full"
+              disabled={exporting || selectedVerses.length === 0}
+              onClick={() => void handleExport()}
+            >
+              {exporting ? "Exporting..." : `Export ${outputFormat === "PPTX" ? "PPTX" : "PNG ZIP"}`}
+            </Button>
+            <InlineError message={exportError} />
+            {exportResult?.downloadUrl ? (
+              <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+                <p className="font-semibold">Export completed.</p>
+                <a
+                  href={exportDownloadHref(exportResult.downloadUrl)}
+                  download
+                  className="mt-2 inline-flex items-center justify-center rounded-md bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-800"
+                >
+                  Download {exportResult.outputFormat === "PPTX" ? "PPTX" : "PNG ZIP"}
+                </a>
+              </div>
+            ) : null}
           </div>
         </aside>
 
