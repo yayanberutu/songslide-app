@@ -21,6 +21,8 @@ management:
       show-details: when_authorized
 
 songslide:
+  export-service:
+    url: ${EXPORT_SERVICE_URL:http://localhost:3002}
   storage:
     local:
       root: ${STORAGE_ROOT:./.local-storage}

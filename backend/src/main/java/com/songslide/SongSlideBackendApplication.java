@@ -1,12 +1,16 @@
 package com.songslide;
 
+import com.songslide.config.ExportServiceProperties;
 import com.songslide.config.LocalStorageProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 
 @SpringBootApplication
-@EnableConfigurationProperties(LocalStorageProperties.class)
+@EnableConfigurationProperties({
+        LocalStorageProperties.class,
+        ExportServiceProperties.class
+})
 public class SongSlideBackendApplication {
 
     public static void main(String[] args) {
