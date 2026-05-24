@@ -23,6 +23,8 @@ management:
 songslide:
   export-service:
     url: ${EXPORT_SERVICE_URL:http://localhost:3002}
+  source-images:
+    max-size-mb: ${MAX_SOURCE_IMAGE_SIZE_MB:10}
   storage:
     local:
       root: ${STORAGE_ROOT:./.local-storage}
