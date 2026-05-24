@@ -22,6 +22,7 @@ build/
 out/
 .next/
 target/
+*.tsbuildinfo
 
 # Java and Gradle
 .gradle/
