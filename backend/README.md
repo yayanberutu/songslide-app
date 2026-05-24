@@ -9,10 +9,10 @@ Current scope:
 - Flyway migration support for the canonical MVP catalog schema.
 - Actuator health endpoint support.
 - Local filesystem storage root configuration.
-- Basic startup/context test.
+- Song book, song, arrangement, source image, and export orchestration APIs.
 - Canonical tables: `song_books`, `songs`, `song_arrangements`, `song_source_images`, and `song_exports`.
 
-Planned responsibilities:
+Responsibilities:
 
 - Own canonical SongSlide data and REST APIs.
 - Persist data in PostgreSQL.
@@ -36,8 +36,11 @@ SPRING_PROFILES_ACTIVE=local \
 DATABASE_URL=jdbc:postgresql://localhost:5432/songslide \
 POSTGRES_USER=songslide \
 POSTGRES_PASSWORD=change-me-local-only \
+EXPORT_SERVICE_URL=http://localhost:3002 \
 mvn spring-boot:run
 ```
+
+Use `EXPORT_SERVICE_URL=http://localhost:3001` when the backend runs natively against the Docker Compose export-service container.
 
 Check health after startup:
 
