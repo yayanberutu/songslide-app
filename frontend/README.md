@@ -2,7 +2,7 @@
 
 Next.js, React, TypeScript, and Tailwind CSS operator shell for SongSlide.
 
-This phase only provides the application shell and placeholder routes. Song book management, song management, editor, preview, export, upload, and OCR workflows are implemented in later issues.
+The frontend provides the local MVP operator workflow for song book management, song management, source image upload, arrangement editing, preview, and PPTX/PNG ZIP export requests through the backend.
 
 ## Local Development
 
@@ -37,4 +37,4 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8080
 
 `BACKEND_INTERNAL_URL` is server-only and points to the backend container on the Docker network. Docker Compose passes it during the frontend image build and at runtime because Next.js rewrites are compiled into the production build. Browser-side API calls still go through `/backend-api/*`; they should not call `http://backend:8080` directly.
 
-The app shell renders without backend data.
+`NEXT_PUBLIC_API_BASE_URL` must stay browser-facing. For local and Docker Compose usage from the host browser, use `http://localhost:8080`.

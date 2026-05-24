@@ -17,7 +17,7 @@ npm run build
 npm run dev
 ```
 
-Default port: `3002`.
+Native default port: `3002`. Docker Compose runs and exposes this service on `3001`.
 
 ## Endpoints
 
