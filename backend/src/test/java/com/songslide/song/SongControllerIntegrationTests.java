@@ -92,13 +92,19 @@ class SongControllerIntegrationTests {
         createSong("KJ", "2", "Amazing Love");
 
         mockMvc.perform(get("/api/songs")
-                        .contextPath("/api")
-                        .param("bookCode", "BE"))
+                        .contextPath("/api"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.length()").value(2))
-                .andExpect(jsonPath("$.data[0].songBook.code").value("BE"))
-                .andExpect(jsonPath("$.data[0].songNumber").value("1"))
-                .andExpect(jsonPath("$.data[1].songNumber").value("2"));
+                .andExpect(jsonPath("$.data.length()").value(3))
+                .andExpect(jsonPath("$.data[0].title").value("Alpha Song"))
+                .andExpect(jsonPath("$.data[1].title").value("Amazing Grace"))
+                .andExpect(jsonPath("$.data[2].title").value("Amazing Love"));
+
+        mockMvc.perform(get("/api/songs")
+                        .contextPath("/api")
+                        .param("title", "Amazing Grace"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].title").value("Amazing Grace"));
 
         mockMvc.perform(get("/api/songs")
                         .contextPath("/api")
@@ -110,11 +116,19 @@ class SongControllerIntegrationTests {
 
         mockMvc.perform(get("/api/songs")
                         .contextPath("/api")
-                        .param("songNumber", "2"))
+                        .param("bookCode", "KJ"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.length()").value(2))
-                .andExpect(jsonPath("$.data[0].songNumber").value("2"))
-                .andExpect(jsonPath("$.data[1].songNumber").value("2"));
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].songBook.code").value("KJ"))
+                .andExpect(jsonPath("$.data[0].title").value("Amazing Love"));
+
+        mockMvc.perform(get("/api/songs")
+                        .contextPath("/api")
+                        .param("songNumber", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].songNumber").value("1"))
+                .andExpect(jsonPath("$.data[0].title").value("Alpha Song"));
     }
 
     @Test

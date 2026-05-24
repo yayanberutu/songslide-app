@@ -37,10 +37,10 @@ public class SongService {
     @Transactional(readOnly = true)
     public List<SongResponse> list(String bookCode, String title, String songNumber) {
         String normalizedBookCode = normalizeOptionalCode(bookCode);
-        String normalizedTitle = normalizeNullable(title);
+        String titlePattern = titlePattern(title);
         String normalizedSongNumber = normalizeOptionalSongNumber(songNumber);
 
-        return songRepository.search(normalizedBookCode, normalizedTitle, normalizedSongNumber)
+        return songRepository.search(normalizedBookCode, titlePattern, normalizedSongNumber)
                 .stream()
                 .map(SongMapper::toResponse)
                 .toList();
@@ -164,5 +164,12 @@ public class SongService {
             return null;
         }
         return value.trim();
+    }
+
+    private String titlePattern(String title) {
+        String normalizedTitle = normalizeNullable(title);
+        return normalizedTitle == null
+                ? null
+                : "%" + normalizedTitle.toLowerCase(Locale.ROOT) + "%";
     }
 }
