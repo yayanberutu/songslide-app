@@ -1,6 +1,7 @@
 package com.songslide.common.exception;
 
 import com.songslide.common.api.ApiResponse;
+import com.songslide.exporting.ExportServiceException;
 import jakarta.validation.ConstraintViolationException;
 import java.util.Comparator;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -43,6 +44,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ApiResponse<Void>> handleNotFound(ResourceNotFoundException exception) {
         return failure(HttpStatus.NOT_FOUND, exception.getMessage());
+    }
+
+    @ExceptionHandler(ExportServiceException.class)
+    public ResponseEntity<ApiResponse<Void>> handleExportService(ExportServiceException exception) {
+        return failure(HttpStatus.BAD_GATEWAY, exception.getMessage());
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
