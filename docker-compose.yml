@@ -1,0 +1,99 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: songslide-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=songslide
+      - POSTGRES_USER=songslide
+      - POSTGRES_PASSWORD=change-me-local-only
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U songslide -d songslide"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  export-service:
+    build:
+      context: ./export-service
+      dockerfile: Dockerfile
+    container_name: songslide-export-service
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - EXPORT_SERVICE_PORT=3001
+      - NODE_ENV=production
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health', (r) => { r.resume(); process.exit(r.statusCode === 200 ? 0 : 1); }).on('error', () => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: songslide-backend
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=local
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=songslide
+      - POSTGRES_USER=songslide
+      - POSTGRES_PASSWORD=change-me-local-only
+      - DATABASE_URL=jdbc:postgresql://postgres:5432/songslide
+      - EXPORT_SERVICE_URL=http://export-service:3001
+      - STORAGE_ROOT=/app/storage
+      - MAX_SOURCE_IMAGE_SIZE_MB=10
+    volumes:
+      - backend_storage:/app/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      export-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/api/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: songslide-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_BASE_URL=http://backend:8080
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  ocr-service:
+    build:
+      context: ./ocr-service
+      dockerfile: Dockerfile
+    container_name: songslide-ocr-service
+    profiles:
+      - ocr
+    ports:
+      - "8001:8001"
+    environment:
+      - OCR_ENABLED=false
+      - PORT=8001
+
+volumes:
+  postgres_data:
+    name: songslide_postgres_data
+  backend_storage:
+    name: songslide_backend_storage
