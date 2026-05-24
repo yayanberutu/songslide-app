@@ -160,6 +160,12 @@ export function ArrangementEditor({ songId }: ArrangementEditorProps) {
             >
               Song detail
             </Link>
+            <Link
+              href={`/songs/${songId}/preview`}
+              className="inline-flex items-center justify-center rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-ink-700 hover:bg-zinc-100"
+            >
+              Preview
+            </Link>
             <Button variant="primary" type="button" disabled={saving} onClick={() => void saveContent()}>
               {saving ? "Saving..." : "Save arrangement"}
             </Button>

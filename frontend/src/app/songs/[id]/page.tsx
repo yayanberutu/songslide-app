@@ -30,6 +30,12 @@ export default async function SongDetailPlaceholderPage({ params }: SongDetailPl
       >
         Open editor
       </Link>
+      <Link
+        href={`/songs/${id}/preview`}
+        className="ml-2 inline-flex items-center justify-center rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-ink-700 hover:bg-zinc-100"
+      >
+        Preview
+      </Link>
     </section>
   );
 }

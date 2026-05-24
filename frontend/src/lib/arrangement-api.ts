@@ -61,6 +61,10 @@ export function createDefaultArrangement(songId: string) {
   });
 }
 
+export function getDefaultArrangement(songId: string) {
+  return apiRequest<SongArrangement>(`/api/songs/${songId}/arrangements/default`);
+}
+
 export function updateArrangementContent(arrangementId: string, contentJson: ArrangementContentJson) {
   return apiRequest<SongArrangement>(`/api/arrangements/${arrangementId}/content`, {
     method: "PUT",
