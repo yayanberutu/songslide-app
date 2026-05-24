@@ -2,6 +2,8 @@ package com.songslide.common.exception;
 
 import com.songslide.common.api.ApiResponse;
 import com.songslide.exporting.ExportServiceException;
+import com.songslide.storage.StorageException;
+import com.songslide.storage.StorageObjectNotFoundException;
 import jakarta.validation.ConstraintViolationException;
 import java.util.Comparator;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -9,10 +11,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -35,7 +40,9 @@ public class GlobalExceptionHandler {
             IllegalArgumentException.class,
             ConstraintViolationException.class,
             HttpMessageNotReadableException.class,
-            MethodArgumentTypeMismatchException.class
+            MethodArgumentTypeMismatchException.class,
+            MissingServletRequestPartException.class,
+            MissingServletRequestParameterException.class
     })
     public ResponseEntity<ApiResponse<Void>> handleBadRequest(Exception exception) {
         return failure(HttpStatus.BAD_REQUEST, exception.getMessage());
@@ -49,6 +56,21 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ExportServiceException.class)
     public ResponseEntity<ApiResponse<Void>> handleExportService(ExportServiceException exception) {
         return failure(HttpStatus.BAD_GATEWAY, exception.getMessage());
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMaxUploadSize(MaxUploadSizeExceededException exception) {
+        return failure(HttpStatus.BAD_REQUEST, "Uploaded file is too large");
+    }
+
+    @ExceptionHandler(StorageObjectNotFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleStorageObjectNotFound(StorageObjectNotFoundException exception) {
+        return failure(HttpStatus.NOT_FOUND, exception.getMessage());
+    }
+
+    @ExceptionHandler(StorageException.class)
+    public ResponseEntity<ApiResponse<Void>> handleStorage(StorageException exception) {
+        return failure(HttpStatus.INTERNAL_SERVER_ERROR, exception.getMessage());
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
