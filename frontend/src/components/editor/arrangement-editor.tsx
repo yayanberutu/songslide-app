@@ -17,6 +17,7 @@ import {
   type VerseSection
 } from "@/lib/arrangement-api";
 import { getSong, type Song } from "@/lib/song-api";
+import { SourceImageReference } from "@/components/source-images/source-image-reference";
 import { Button, EmptyState, Field, InlineError, LoadingState, TextArea, TextInput } from "@/components/ui";
 
 type ArrangementEditorProps = {
@@ -173,7 +174,7 @@ export function ArrangementEditor({ songId }: ArrangementEditorProps) {
         </div>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="space-y-4">
           <div className="rounded-md border border-zinc-200 bg-white p-4">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -222,12 +223,7 @@ export function ArrangementEditor({ songId }: ArrangementEditorProps) {
               Changes stay local until Save arrangement is pressed. The full structured content document is sent to the backend.
             </p>
           </div>
-          <div className="rounded-md border border-dashed border-zinc-300 bg-white p-4">
-            <h2 className="text-base font-semibold text-ink-950">Source image reference</h2>
-            <p className="mt-2 text-sm leading-6 text-ink-500">
-              Source image display will appear here after the upload UI phase. The editor is ready for a side-by-side layout on laptop screens.
-            </p>
-          </div>
+          <SourceImageReference songId={songId} />
         </aside>
       </div>
     </section>
