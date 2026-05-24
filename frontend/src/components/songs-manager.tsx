@@ -363,6 +363,12 @@ export function SongsManager() {
                           >
                             Detail
                           </Link>
+                          <Link
+                            href={`/songs/${song.id}/editor`}
+                            className="inline-flex items-center justify-center rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-ink-700 hover:bg-zinc-100"
+                          >
+                            Editor
+                          </Link>
                           <Button type="button" onClick={() => startEdit(song)}>
                             Edit
                           </Button>
