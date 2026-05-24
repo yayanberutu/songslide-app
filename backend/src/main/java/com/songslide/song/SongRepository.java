@@ -17,13 +17,13 @@ public interface SongRepository extends JpaRepository<Song, UUID> {
             FROM Song song
             JOIN FETCH song.songBook book
             WHERE (:bookCode IS NULL OR book.code = :bookCode)
-              AND (:title IS NULL OR LOWER(song.title) LIKE LOWER(CONCAT('%', :title, '%')))
+              AND (:titlePattern IS NULL OR LOWER(song.title) LIKE :titlePattern)
               AND (:songNumber IS NULL OR song.songNumber = :songNumber)
             ORDER BY book.code ASC, song.songNumber ASC, song.title ASC
             """)
     List<Song> search(
             @Param("bookCode") String bookCode,
-            @Param("title") String title,
+            @Param("titlePattern") String titlePattern,
             @Param("songNumber") String songNumber
     );
 }
