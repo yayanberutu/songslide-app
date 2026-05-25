@@ -38,6 +38,8 @@ test("parses bar and extension tokens without lyric slots", () => {
 test("parses beam and slur groups with correct lyric slot counts", () => {
   assert.equal(countNotationLyricSlots(parseNotationLine("[4 5]").tokens), 2);
   assert.equal(countNotationLyricSlots(parseNotationLine("[4 5 6]").tokens), 3);
+  assert.equal(countNotationLyricSlots(parseNotationLine("[4 3 [3 2]]").tokens), 4);
+  assert.equal(countNotationLyricSlots(parseNotationLine("[5 [6 5]]").tokens), 3);
   assert.equal(countNotationLyricSlots(parseNotationLine("(4 3 2)").tokens), 1);
   assert.equal(countNotationLyricSlots(parseNotationLine("([4 5 6])").tokens), 1);
   assert.equal(countNotationLyricSlots(parseNotationLine("[(4 5) 6]").tokens), 2);
@@ -45,6 +47,15 @@ test("parses beam and slur groups with correct lyric slot counts", () => {
   assert.equal(countNotationLyricSlots(parseNotationLine("[4 .]").tokens), 1);
   assert.equal(countNotationLyricSlots(parseNotationLine("(4 . 5)").tokens), 1);
   assert.equal(countNotationLyricSlots(parseNotationLine("[(4 .) 5]").tokens), 2);
+});
+
+test("preserves nested beam structure", () => {
+  const parsed = parseNotationLine("[4 3 [3 2]]");
+
+  assert.equal(parsed.issues.length, 0);
+  assert.equal(parsed.tokens[0]?.type, "BEAM");
+  assert.equal(parsed.tokens[0]?.children.length, 3);
+  assert.equal(parsed.tokens[0]?.children[2]?.type, "BEAM");
 });
 
 test("reports invalid note tokens and unclosed groups", () => {
@@ -63,6 +74,7 @@ test("alignment respects nested beam and slur semantics", () => {
   const beamSlurAlignment = alignNotationAndLyric("([4 5 6])", "Ka");
   const partialSlurAlignment = alignNotationAndLyric("[(4 5) 6]", "Ka sih");
   const nestedAlignment = alignNotationAndLyric("[4 (5 6)]", "Ka sih");
+  const nestedBeamAlignment = alignNotationAndLyric("[4 3 [3 2]]", "I ngin i kut");
   const extensionAlignment = alignNotationAndLyric("2 . 1", "Ka sih");
   const beamExtensionAlignment = alignNotationAndLyric("[4 .]", "Ka");
   const slurExtensionAlignment = alignNotationAndLyric("(4 . 5)", "Ka");
@@ -82,6 +94,9 @@ test("alignment respects nested beam and slur semantics", () => {
 
   assert.equal(nestedAlignment.status, "MATCH");
   assert.equal(nestedAlignment.notationSlotCount, 2);
+
+  assert.equal(nestedBeamAlignment.status, "MATCH");
+  assert.equal(nestedBeamAlignment.notationSlotCount, 4);
 
   assert.equal(extensionAlignment.status, "MATCH");
   assert.equal(extensionAlignment.notationSlotCount, 2);

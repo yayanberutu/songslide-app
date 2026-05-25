@@ -3,11 +3,16 @@ import type { NotationToken as NotationTokenValue } from "@/lib/notation-parser"
 type NotationTokenProps = {
   token: NotationTokenValue;
   theme?: "LIGHT" | "DARK";
+  beamDepth?: number;
 };
 
 const notationArea = "relative inline-flex h-11 items-center justify-center";
 
-export function NotationToken({ token, theme = "LIGHT" }: NotationTokenProps) {
+export function NotationToken({
+  token,
+  theme = "LIGHT",
+  beamDepth = 0
+}: NotationTokenProps) {
   const isDark = theme === "DARK";
   const noteTone = isDark ? "text-cyan-100" : "text-ink-950";
   const mutedTone = isDark ? "text-zinc-300" : "text-ink-500";
@@ -30,7 +35,10 @@ export function NotationToken({ token, theme = "LIGHT" }: NotationTokenProps) {
   if (token.type === "EXTENSION") {
     return (
       <span className={`${notationArea} w-3`}>
-        <span aria-hidden="true" className={`mt-3 block h-1.5 w-1.5 rounded-full ${isDark ? "bg-zinc-100" : "bg-ink-700"}`} />
+        <span
+          aria-hidden="true"
+          className={`absolute top-[1.15rem] left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full ${isDark ? "bg-zinc-100" : "bg-ink-700"}`}
+        />
       </span>
     );
   }
@@ -40,7 +48,7 @@ export function NotationToken({ token, theme = "LIGHT" }: NotationTokenProps) {
       <span className={`${notationArea} w-fit px-px`}>
         <span className="inline-flex h-full items-center gap-1">
           {token.children.map((child, index) => (
-            <NotationToken key={`${token.raw}-${index}`} token={child} theme={theme} />
+            <NotationToken key={`${token.raw}-${index}`} token={child} theme={theme} beamDepth={beamDepth} />
           ))}
         </span>
         <span
@@ -52,22 +60,30 @@ export function NotationToken({ token, theme = "LIGHT" }: NotationTokenProps) {
   }
 
   if (token.type === "BEAM") {
+    const ownBeamLevel = Math.min(beamDepth + 1, 2);
+    const beamTopClass = ownBeamLevel === 1 ? "top-1" : "top-[0.45rem]";
+
     return (
       <span className={`${notationArea} w-fit px-px`}>
-        <span aria-hidden="true" className={`pointer-events-none absolute top-1.5 left-0.5 right-0.5 h-0.5 rounded-full ${beamTone}`} />
+        <span
+          aria-hidden="true"
+          className={`pointer-events-none absolute ${beamTopClass} left-0.5 right-0.5 h-0.5 rounded-full ${beamTone}`}
+        />
         <span className="inline-flex h-full items-center gap-1">
           {token.children.map((child, index) => (
-            <NotationToken key={`${token.raw}-${index}`} token={child} theme={theme} />
+            <NotationToken key={`${token.raw}-${index}`} token={child} theme={theme} beamDepth={ownBeamLevel} />
           ))}
         </span>
       </span>
     );
   }
 
+  const topDotClass = beamDepth > 0 ? "top-[0.75rem]" : "top-1.5";
+
   return (
     <span className={`${notationArea} min-w-4 px-0.5 text-lg font-semibold leading-none ${noteTone}`}>
       {token.octave > 0 ? (
-        <span className="pointer-events-none absolute top-1.5 left-1/2 flex -translate-x-1/2 gap-px">
+        <span className={`pointer-events-none absolute ${topDotClass} left-1/2 flex -translate-x-1/2 gap-px`}>
           {Array.from({ length: token.octave }).map((_, index) => (
             <span key={`top-${index}`} className="h-1 w-1 rounded-full bg-current" />
           ))}
