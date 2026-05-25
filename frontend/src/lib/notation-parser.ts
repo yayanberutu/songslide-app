@@ -37,6 +37,11 @@ export type NotationBarToken = NotationTokenBase & {
   lyricSlots: 0;
 };
 
+export type NotationExtensionToken = NotationTokenBase & {
+  type: "EXTENSION";
+  lyricSlots: 0;
+};
+
 export type NotationSlurToken = NotationTokenBase & {
   type: "SLUR";
   children: NotationGroupChildToken[];
@@ -52,11 +57,13 @@ export type NotationToken =
   | NotationNoteToken
   | NotationRestToken
   | NotationBarToken
+  | NotationExtensionToken
   | NotationSlurToken
   | NotationBeamToken;
 
 export type NotationGroupChildToken =
   | NotationNoteToken
+  | NotationExtensionToken
   | NotationSlurToken
   | NotationBeamToken;
 
@@ -228,7 +235,7 @@ function parseGroup(
 
     issues.push({
       code: "INVALID_TOKEN",
-      message: `${capitalize(label)} groups may contain only notes or nested notation groups`,
+      message: `${capitalize(label)} groups may contain only notes, extension dots, or nested notation groups`,
       raw: token.raw,
       index: token.index
     });
@@ -237,7 +244,7 @@ function parseGroup(
   if (children.length === 0) {
     issues.push({
       code: "INVALID_TOKEN",
-      message: `${capitalize(label)} group must contain at least one note or nested notation group`,
+      message: `${capitalize(label)} group must contain at least one note, extension dot, or nested notation group`,
       raw,
       index: start
     });
@@ -279,7 +286,19 @@ function parseStandaloneToken(
   raw: string,
   index: number,
   options: { allowRest: boolean }
-): { token: NotationNoteToken | NotationRestToken | null; issues: NotationParserIssue[] } {
+): { token: NotationNoteToken | NotationRestToken | NotationExtensionToken | null; issues: NotationParserIssue[] } {
+  if (raw === ".") {
+    return {
+      token: {
+        type: "EXTENSION",
+        raw,
+        index,
+        lyricSlots: 0
+      },
+      issues: []
+    };
+  }
+
   if (raw === "0") {
     if (!options.allowRest) {
       return {
@@ -350,7 +369,7 @@ function parseStandaloneToken(
 }
 
 function isGroupChildToken(token: NotationToken): token is NotationGroupChildToken {
-  return token.type === "NOTE" || token.type === "SLUR" || token.type === "BEAM";
+  return token.type === "NOTE" || token.type === "EXTENSION" || token.type === "SLUR" || token.type === "BEAM";
 }
 
 function isTokenDelimiter(value: string) {

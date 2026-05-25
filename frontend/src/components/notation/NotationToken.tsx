@@ -5,32 +5,47 @@ type NotationTokenProps = {
   theme?: "LIGHT" | "DARK";
 };
 
+const notationArea = "relative inline-flex h-11 items-center justify-center";
+
 export function NotationToken({ token, theme = "LIGHT" }: NotationTokenProps) {
   const isDark = theme === "DARK";
   const noteTone = isDark ? "text-cyan-100" : "text-ink-950";
-  const mutedTone = isDark ? "text-zinc-400" : "text-ink-400";
-  const slurTone = isDark ? "border-cyan-100/70" : "border-ink-950/60";
+  const mutedTone = isDark ? "text-zinc-300" : "text-ink-500";
   const beamTone = isDark ? "bg-cyan-100/85" : "bg-ink-950/80";
+  const slurTone = isDark ? "border-cyan-100/70" : "border-ink-950/60";
+  const barTone = isDark ? "bg-zinc-300/80" : "bg-ink-500/80";
 
   if (token.type === "BAR") {
-    return <span className={`mx-1 inline-block h-10 w-px self-center bg-current/40 ${mutedTone}`} aria-label="Bar line" />;
+    return (
+      <span className={`${notationArea} w-2`}>
+        <span aria-hidden="true" className={`block h-5 w-px ${barTone}`} />
+      </span>
+    );
   }
 
   if (token.type === "REST") {
-    return <span className={`inline-flex min-w-6 justify-center text-lg font-semibold ${mutedTone}`}>0</span>;
+    return <span className={`${notationArea} min-w-4 text-lg font-semibold leading-none ${mutedTone}`}>0</span>;
+  }
+
+  if (token.type === "EXTENSION") {
+    return (
+      <span className={`${notationArea} w-3`}>
+        <span aria-hidden="true" className={`mt-3 block h-1.5 w-1.5 rounded-full ${isDark ? "bg-zinc-100" : "bg-ink-700"}`} />
+      </span>
+    );
   }
 
   if (token.type === "SLUR") {
     return (
-      <span className="relative inline-flex px-0.5 pt-1 pb-3">
-        <span className="inline-flex items-end gap-1">
+      <span className={`${notationArea} w-fit px-px`}>
+        <span className="inline-flex h-full items-center gap-1">
           {token.children.map((child, index) => (
             <NotationToken key={`${token.raw}-${index}`} token={child} theme={theme} />
           ))}
         </span>
         <span
           aria-hidden="true"
-          className={`pointer-events-none absolute right-0.5 bottom-0.5 left-0.5 h-2 rounded-b-full border-b-2 border-r border-l ${slurTone}`}
+          className={`pointer-events-none absolute right-0 bottom-0.5 left-0 h-2 rounded-b-full border-r border-b-2 border-l ${slurTone}`}
         />
       </span>
     );
@@ -38,9 +53,9 @@ export function NotationToken({ token, theme = "LIGHT" }: NotationTokenProps) {
 
   if (token.type === "BEAM") {
     return (
-      <span className="relative inline-flex px-0.5 pt-3 pb-1">
-        <span aria-hidden="true" className={`pointer-events-none absolute top-1 left-1 right-1 h-0.5 rounded-full ${beamTone}`} />
-        <span className="inline-flex items-end gap-1">
+      <span className={`${notationArea} w-fit px-px`}>
+        <span aria-hidden="true" className={`pointer-events-none absolute top-1.5 left-0.5 right-0.5 h-0.5 rounded-full ${beamTone}`} />
+        <span className="inline-flex h-full items-center gap-1">
           {token.children.map((child, index) => (
             <NotationToken key={`${token.raw}-${index}`} token={child} theme={theme} />
           ))}
@@ -50,26 +65,26 @@ export function NotationToken({ token, theme = "LIGHT" }: NotationTokenProps) {
   }
 
   return (
-    <span className={`relative inline-flex min-w-6 items-center justify-center px-0.5 pt-1 pb-1 text-lg font-semibold ${noteTone}`}>
+    <span className={`${notationArea} min-w-4 px-0.5 text-lg font-semibold leading-none ${noteTone}`}>
       {token.octave > 0 ? (
-        <span className="pointer-events-none absolute top-0 left-1/2 flex -translate-x-1/2 gap-px">
+        <span className="pointer-events-none absolute top-1.5 left-1/2 flex -translate-x-1/2 gap-px">
           {Array.from({ length: token.octave }).map((_, index) => (
             <span key={`top-${index}`} className="h-1 w-1 rounded-full bg-current" />
           ))}
         </span>
       ) : null}
       {token.octave < 0 ? (
-        <span className="pointer-events-none absolute bottom-0 left-1/2 flex -translate-x-1/2 gap-px">
+        <span className="pointer-events-none absolute bottom-1.5 left-1/2 flex -translate-x-1/2 gap-px">
           {Array.from({ length: Math.abs(token.octave) }).map((_, index) => (
             <span key={`bottom-${index}`} className="h-1 w-1 rounded-full bg-current" />
           ))}
         </span>
       ) : null}
 
-      <span>{token.degree}</span>
+      <span className="translate-y-[1px]">{token.degree}</span>
 
       {token.shortDurationLevel > 0 ? (
-        <span className="pointer-events-none absolute right-0 top-1 flex flex-col gap-0.5" aria-hidden="true">
+        <span className="pointer-events-none absolute top-[0.6rem] right-0 flex flex-col gap-0.5" aria-hidden="true">
           {Array.from({ length: token.shortDurationLevel }).map((_, index) => (
             <span
               key={`duration-${index}`}

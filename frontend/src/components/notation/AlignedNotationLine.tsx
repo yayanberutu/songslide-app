@@ -22,7 +22,6 @@ export function AlignedNotationLine({
   const isDark = theme === "DARK";
   const lyricTone = isDark ? "text-zinc-50" : "text-ink-800";
   const subtleTone = isDark ? "text-zinc-400" : "text-ink-400";
-  const beamTone = isDark ? "bg-cyan-100/85" : "bg-ink-950/80";
 
   if ((notation?.trim() ?? "").length === 0) {
     return hasText(lyric) ? (
@@ -52,14 +51,13 @@ export function AlignedNotationLine({
 
   return (
     <div className="max-w-full overflow-x-auto pb-1">
-      <div className="flex flex-wrap items-end gap-x-2 gap-y-3">
+      <div className="flex flex-wrap items-start gap-x-2 gap-y-2">
         {alignment.notation.tokens.map((token, index) => (
-          <AlignedToken
+          <TopLevelToken
             key={`${token.raw}-${index}`}
             token={token}
             theme={theme}
             lyricTone={lyricTone}
-            beamTone={beamTone}
             cells={alignment.cells}
             slotCursor={slotCursor}
           />
@@ -69,88 +67,102 @@ export function AlignedNotationLine({
   );
 }
 
-function AlignedToken({
+function TopLevelToken({
   token,
   theme,
   lyricTone,
-  beamTone,
   cells,
   slotCursor
 }: {
   token: NotationTokenValue;
   theme: "LIGHT" | "DARK";
   lyricTone: string;
-  beamTone: string;
   cells: AlignmentCell[];
   slotCursor: SlotCursor;
 }) {
-  if (token.type === "BAR" || token.type === "REST") {
+  if (token.type === "BEAM") {
     return (
-      <div className="flex min-h-[3.5rem] items-start">
+      <div className="flex flex-col items-center gap-1">
         <NotationToken token={token} theme={theme} />
+        <BeamLyricTrack token={token} lyricTone={lyricTone} cells={cells} slotCursor={slotCursor} />
       </div>
     );
   }
 
-  if (token.type === "BEAM") {
-    return (
-      <BeamToken
-        token={token}
-        theme={theme}
-        lyricTone={lyricTone}
-        beamTone={beamTone}
-        cells={cells}
-        slotCursor={slotCursor}
-      />
-    );
+  const lyric = token.lyricSlots > 0 ? cells[slotCursor.index]?.lyric ?? null : null;
+  if (token.lyricSlots > 0) {
+    slotCursor.index += 1;
   }
 
-  const lyric = cells[slotCursor.index]?.lyric;
-  slotCursor.index += 1;
-
   return (
-    <div className="flex min-w-[2.1rem] flex-col items-center gap-1">
+    <div className="flex flex-col items-center gap-1">
       <NotationToken token={token} theme={theme} />
-      <span className={`text-base leading-5 ${lyricTone}`}>
-        {lyric?.text ?? ""}
-      </span>
+      {token.lyricSlots > 0 ? (
+        <span className={`max-w-[2.6rem] text-center text-base leading-5 [overflow-wrap:anywhere] ${lyricTone}`}>
+          {lyric?.text ?? ""}
+        </span>
+      ) : null}
     </div>
   );
 }
 
-function BeamToken({
+function BeamLyricTrack({
   token,
-  theme,
   lyricTone,
-  beamTone,
   cells,
   slotCursor
 }: {
   token: NotationBeamToken;
-  theme: "LIGHT" | "DARK";
   lyricTone: string;
-  beamTone: string;
   cells: AlignmentCell[];
   slotCursor: SlotCursor;
 }) {
   return (
-    <div className="relative inline-flex px-0.5 pt-3 pb-1">
-      <span aria-hidden="true" className={`pointer-events-none absolute top-1 left-1 right-1 h-0.5 rounded-full ${beamTone}`} />
-      <div className="inline-flex items-end gap-1">
-        {token.children.map((child, index) => (
-          <AlignedToken
-            key={`${token.raw}-${index}`}
-            token={child}
-            theme={theme}
-            lyricTone={lyricTone}
-            beamTone={beamTone}
-            cells={cells}
-            slotCursor={slotCursor}
-          />
-        ))}
-      </div>
+    <div className="inline-flex items-start gap-1">
+      {token.children.map((child, index) => (
+        <LyricTrackToken
+          key={`${token.raw}-${index}`}
+          token={child}
+          lyricTone={lyricTone}
+          cells={cells}
+          slotCursor={slotCursor}
+        />
+      ))}
     </div>
   );
+}
+
+function LyricTrackToken({
+  token,
+  lyricTone,
+  cells,
+  slotCursor
+}: {
+  token: NotationTokenValue;
+  lyricTone: string;
+  cells: AlignmentCell[];
+  slotCursor: SlotCursor;
+}) {
+  if (token.type === "BEAM") {
+    return <BeamLyricTrack token={token} lyricTone={lyricTone} cells={cells} slotCursor={slotCursor} />;
+  }
+
+  if (token.type === "SLUR" || token.type === "NOTE") {
+    const lyric = cells[slotCursor.index]?.lyric ?? null;
+    slotCursor.index += 1;
+
+    return (
+      <span className={`inline-flex min-w-4 max-w-[2.4rem] justify-center text-center text-base leading-5 [overflow-wrap:anywhere] ${lyricTone}`}>
+        {lyric?.text ?? ""}
+      </span>
+    );
+  }
+
+  if (token.type === "EXTENSION") {
+    return <span className="inline-flex w-3" aria-hidden="true" />;
+  }
+
+  return <span className="inline-flex min-w-4" aria-hidden="true" />;
 }
 
 function hasText(value: string | null | undefined) {
