@@ -1,0 +1,20 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": ".tmp-tests",
+    "rootDir": ".",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "ES2022",
+    "lib": ["es2022"],
+    "jsx": "preserve",
+    "paths": {}
+  },
+  "include": [
+    "src/lib/notation-parser.ts",
+    "src/lib/lyric-parser.ts",
+    "src/lib/alignment.ts",
+    "src/lib/notation-parser.test.ts"
+  ]
+}

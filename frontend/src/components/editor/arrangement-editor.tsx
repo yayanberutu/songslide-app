@@ -17,6 +17,7 @@ import {
   type VerseSection
 } from "@/lib/arrangement-api";
 import { getSong, type Song } from "@/lib/song-api";
+import { AlignmentStatus } from "@/components/notation/AlignmentStatus";
 import { SourceImageReference } from "@/components/source-images/source-image-reference";
 import { Button, EmptyState, Field, InlineError, LoadingState, TextArea, TextInput } from "@/components/ui";
 
@@ -358,6 +359,8 @@ function VerseSectionEditor({
         </div>
       </div>
 
+      <NotationSyntaxHint />
+
       {section.lines.length === 0 ? (
         <EmptyState title="No verse lines" description="Add a line to enter notation and verse lyrics." />
       ) : (
@@ -383,19 +386,25 @@ function VerseSectionEditor({
                 </Field>
                 <div className="grid gap-3 md:grid-cols-2">
                   {verseNumbers.map((verseNumber) => (
-                    <Field key={verseNumber} label={`Verse ${verseNumber} lyric`}>
-                      <TextInput
-                        value={line.lyricsByVerse?.[verseNumber] ?? ""}
-                        onChange={(event) => updateLine(index, {
-                          ...line,
-                          lyricsByVerse: {
-                            ...(line.lyricsByVerse ?? {}),
-                            [verseNumber]: event.target.value
-                          }
-                        })}
-                        placeholder={`Lyric for verse ${verseNumber}`}
+                    <div key={verseNumber} className="space-y-2">
+                      <Field label={`Verse ${verseNumber} lyric`}>
+                        <TextInput
+                          value={line.lyricsByVerse?.[verseNumber] ?? ""}
+                          onChange={(event) => updateLine(index, {
+                            ...line,
+                            lyricsByVerse: {
+                              ...(line.lyricsByVerse ?? {}),
+                              [verseNumber]: event.target.value
+                            }
+                          })}
+                          placeholder={`Lyric for verse ${verseNumber}`}
+                        />
+                      </Field>
+                      <AlignmentStatus
+                        notation={line.notation}
+                        lyric={line.lyricsByVerse?.[verseNumber] ?? ""}
                       />
-                    </Field>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -436,6 +445,8 @@ function RefrainSectionEditor({
 
   return (
     <div className="space-y-4">
+      <NotationSyntaxHint />
+
       {section.lines.length === 0 ? (
         <EmptyState title="No refrain lines" description="Add a refrain line to enter notation and lyric text." />
       ) : (
@@ -467,6 +478,7 @@ function RefrainSectionEditor({
                   />
                 </Field>
               </div>
+              <AlignmentStatus notation={line.notation} lyric={line.lyric} />
             </div>
           ))}
         </div>
@@ -584,6 +596,14 @@ function LineActions({
       <Button type="button" onClick={() => onMove(1)} disabled={index === total - 1}>Move line down</Button>
       <Button type="button" variant="danger" onClick={onDelete}>Delete line</Button>
     </div>
+  );
+}
+
+function NotationSyntaxHint() {
+  return (
+    <p className="rounded-md bg-zinc-50 px-3 py-2 text-xs leading-5 text-ink-500">
+      Examples: `1&apos;` high, `1,` low, `[4 5]` beam, `(4 5)` slur, `([4 5 6])` beam + slur, `[(4 5) 6]` partial slur.
+    </p>
   );
 }
 

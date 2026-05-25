@@ -23,6 +23,8 @@ import {
   type SongExportResponse
 } from "@/lib/export-api";
 import { getSong, type Song } from "@/lib/song-api";
+import { AlignedNotationLine } from "@/components/notation/AlignedNotationLine";
+import { NotationLine } from "@/components/notation/NotationLine";
 import { Button, EmptyState, Field, InlineError, LoadingState, SelectInput } from "@/components/ui";
 
 type ArrangementPreviewProps = {
@@ -387,12 +389,13 @@ function PreviewSlideCard({
         ) : (
           visibleLines.map((line, index) => (
             <div key={`${slide.key}-line-${index}`} className="space-y-1">
-              {showNotation && hasText(line.notation) ? (
-                <p className={["break-all font-mono text-lg leading-7", isDark ? "text-cyan-100" : "text-ink-950"].join(" ")}>
-                  {line.notation}
-                </p>
+              {showNotation && hasText(line.notation) && hasText(line.lyric) ? (
+                <AlignedNotationLine notation={line.notation} lyric={line.lyric} theme={theme} />
               ) : null}
-              {hasText(line.lyric) ? (
+              {showNotation && hasText(line.notation) && !hasText(line.lyric) ? (
+                <NotationLine notation={line.notation} theme={theme} />
+              ) : null}
+              {(!showNotation || !hasText(line.notation)) && hasText(line.lyric) ? (
                 <p className={["whitespace-pre-wrap break-words text-lg leading-7 [overflow-wrap:anywhere]", isDark ? "text-zinc-50" : "text-ink-800"].join(" ")}>
                   {line.lyric}
                 </p>
