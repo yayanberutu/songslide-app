@@ -1,19 +1,19 @@
 import JSZip from "jszip";
 import { chromium } from "playwright";
+import {
+  buildExportRenderPlan,
+  getSlideSurfaceSize,
+  layoutLinePositions,
+  type PlannedExportLine
+} from "./export-layout";
 import type { ExportPayload } from "./schemas";
 
 const PNG_ZIP_MIME_TYPE = "application/zip";
-
-interface ImageSize {
-  width: number;
-  height: number;
-}
 
 interface ThemeColors {
   background: string;
   primaryText: string;
   secondaryText: string;
-  notationText: string;
   lyricText: string;
   footerText: string;
 }
@@ -21,7 +21,8 @@ interface ThemeColors {
 export { PNG_ZIP_MIME_TYPE };
 
 export async function generatePngZip(payload: ExportPayload): Promise<Buffer> {
-  const imageSize = getImageSize(payload);
+  const surface = getSlideSurfaceSize(payload);
+  const renderPlan = buildExportRenderPlan(payload, surface);
   const zip = new JSZip();
   const browser = await chromium.launch({
     headless: true,
@@ -37,7 +38,7 @@ export async function generatePngZip(payload: ExportPayload): Promise<Buffer> {
 
   try {
     const context = await browser.newContext({
-      viewport: imageSize,
+      viewport: surface,
       deviceScaleFactor: 1,
       javaScriptEnabled: false,
       reducedMotion: "reduce",
@@ -45,8 +46,8 @@ export async function generatePngZip(payload: ExportPayload): Promise<Buffer> {
     });
     const page = await context.newPage();
 
-    for (const index of payload.slides.keys()) {
-      await page.setContent(renderSlideHtml(payload, index, imageSize), {
+    for (const [pageIndex, slidePage] of renderPlan.pages.entries()) {
+      await page.setContent(renderSlideHtml(slidePage, pageIndex, renderPlan, payload.layout.theme), {
         waitUntil: "load"
       });
 
@@ -57,7 +58,7 @@ export async function generatePngZip(payload: ExportPayload): Promise<Buffer> {
         caret: "hide"
       });
 
-      zip.file(`slide-${String(index + 1).padStart(3, "0")}.png`, screenshot);
+      zip.file(`slide-${String(pageIndex + 1).padStart(3, "0")}.png`, screenshot);
     }
 
     await context.close();
@@ -86,16 +87,17 @@ export function buildPngZipFileName(payload: ExportPayload): string {
   return `${withoutKnownExtension}.zip`;
 }
 
-function renderSlideHtml(payload: ExportPayload, slideIndex: number, imageSize: ImageSize): string {
-  const slide = payload.slides[slideIndex];
-  const colors = getThemeColors(payload.layout.theme);
-  const lineCount = slide.lines.length;
-  const notationFontSize = getNotationFontSize(lineCount);
-  const lyricFontSize = getLyricFontSize(lineCount);
-  const lineGap = lineCount <= 4 ? 26 : lineCount <= 7 ? 18 : 10;
-  const detailText = [slide.subtitle, slide.metadata]
-    .filter((value): value is string => Boolean(value && value.trim()))
-    .join(" | ");
+function renderSlideHtml(
+  slidePage: ReturnType<typeof buildExportRenderPlan>["pages"][number],
+  pageIndex: number,
+  renderPlan: ReturnType<typeof buildExportRenderPlan>,
+  theme: ExportPayload["layout"]["theme"]
+): string {
+  const colors = getThemeColors(theme);
+  const { frame, tokens } = renderPlan;
+  const linePositions = layoutLinePositions(slidePage.lines, frame.bodyTop, tokens.bodyGap);
+  const subtitleY = frame.headerTop + tokens.titleLineHeight + tokens.titleGap;
+  const metadataY = subtitleY + tokens.subtitleLineHeight + tokens.subtitleGap;
 
   return `<!doctype html>
 <html lang="id">
@@ -108,8 +110,8 @@ function renderSlideHtml(payload: ExportPayload, slideIndex: number, imageSize: 
 
     html,
     body {
-      width: ${imageSize.width}px;
-      height: ${imageSize.height}px;
+      width: ${frame.surface.width}px;
+      height: ${frame.surface.height}px;
       margin: 0;
       overflow: hidden;
       background: #${colors.background};
@@ -118,131 +120,131 @@ function renderSlideHtml(payload: ExportPayload, slideIndex: number, imageSize: 
     }
 
     .slide {
-      width: ${imageSize.width}px;
-      height: ${imageSize.height}px;
-      display: grid;
-      grid-template-rows: auto auto minmax(0, 1fr) auto;
-      row-gap: 22px;
-      padding: 72px 96px 54px;
+      position: relative;
+      width: ${frame.surface.width}px;
+      height: ${frame.surface.height}px;
       overflow: hidden;
     }
 
     .title {
-      max-height: 128px;
+      position: absolute;
+      top: ${frame.headerTop}px;
+      left: ${frame.contentX}px;
+      width: ${frame.contentWidth}px;
+      max-height: ${tokens.titleLineHeight * 2}px;
       overflow: hidden;
       color: #${colors.primaryText};
-      font-size: 58px;
+      font-size: ${tokens.titleFontSize}px;
       font-weight: 760;
-      line-height: 1.08;
+      line-height: ${tokens.titleLineHeight}px;
       overflow-wrap: anywhere;
     }
 
-    .details {
-      min-height: 36px;
-      max-height: 46px;
+    .subtitle {
+      position: absolute;
+      top: ${subtitleY}px;
+      left: ${frame.contentX}px;
+      width: ${frame.contentWidth}px;
+      max-height: ${tokens.subtitleLineHeight * 2}px;
+      overflow: hidden;
+      color: #${colors.primaryText};
+      font-size: ${tokens.subtitleFontSize}px;
+      font-weight: 760;
+      line-height: ${tokens.subtitleLineHeight}px;
+      overflow-wrap: anywhere;
+    }
+
+    .metadata {
+      position: absolute;
+      top: ${metadataY}px;
+      left: ${frame.contentX}px;
+      width: ${frame.contentWidth}px;
+      max-height: ${tokens.metadataLineHeight * 2}px;
       overflow: hidden;
       color: #${colors.secondaryText};
-      font-size: 30px;
-      line-height: 1.18;
+      font-size: ${tokens.metadataFontSize}px;
+      line-height: ${tokens.metadataLineHeight}px;
       overflow-wrap: anywhere;
     }
 
-    .lines {
-      min-height: 0;
-      display: grid;
-      grid-template-rows: repeat(${lineCount}, minmax(0, 1fr));
-      row-gap: ${lineGap}px;
-      overflow: hidden;
+    .divider {
+      position: absolute;
+      top: ${frame.dividerY}px;
+      left: ${frame.contentX}px;
+      width: ${frame.contentWidth}px;
+      height: ${tokens.dividerThickness}px;
+      background: #${colors.primaryText}26;
     }
 
     .line {
-      min-height: 0;
+      position: absolute;
+      left: ${frame.contentX}px;
+      width: ${frame.contentWidth}px;
       display: flex;
-      flex-direction: column;
-      justify-content: center;
-      gap: 9px;
+      align-items: flex-start;
       overflow: hidden;
     }
 
-    .notation,
-    .lyric {
+    .notation-frame,
+    .lyric-frame {
       display: block;
       overflow: hidden;
+    }
+
+    .notation-frame svg {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .lyric-frame {
+      color: #${colors.lyricText};
       white-space: pre-wrap;
       overflow-wrap: anywhere;
       text-wrap: pretty;
-    }
-
-    .notation {
-      color: #${colors.notationText};
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      font-size: ${notationFontSize}px;
-      font-weight: 760;
-      line-height: 1.12;
-      max-height: ${Math.ceil(notationFontSize * 2.4)}px;
-    }
-
-    .lyric {
-      color: #${colors.lyricText};
-      font-size: ${lyricFontSize}px;
       font-weight: 430;
-      line-height: 1.16;
-      max-height: ${Math.ceil(lyricFontSize * 2.45)}px;
     }
 
     .footer {
-      height: 24px;
+      position: absolute;
+      top: ${frame.footerY}px;
+      right: ${frame.contentX}px;
+      width: 96px;
+      height: ${tokens.footerHeight}px;
       color: #${colors.footerText};
-      font-size: 18px;
-      line-height: 24px;
+      font-size: ${tokens.footerFontSize}px;
+      line-height: ${tokens.footerHeight}px;
       text-align: right;
     }
   </style>
 </head>
 <body>
   <main class="slide">
-    <section>
-      <div class="title">${escapeHtml(slide.title)}</div>
-      <div class="details">${escapeHtml(detailText)}</div>
-    </section>
-    <div aria-hidden="true"></div>
-    <section class="lines">
-      ${slide.lines.map((line) => renderLineHtml(payload, line)).join("")}
-    </section>
-    <footer class="footer">${slideIndex + 1} / ${payload.slides.length}</footer>
+    <div class="title">${escapeHtml(slidePage.title)}</div>
+    <div class="subtitle">${escapeHtml(slidePage.subtitle)}</div>
+    ${slidePage.metadata ? `<div class="metadata">${escapeHtml(slidePage.metadata)}</div>` : ""}
+    <div aria-hidden="true" class="divider"></div>
+    ${linePositions.map(({ line, y }) => renderLineHtml(line, y, frame.contentWidth)).join("")}
+    <footer class="footer">${pageIndex + 1} / ${renderPlan.pages.length}</footer>
   </main>
 </body>
 </html>`;
 }
 
-function renderLineHtml(payload: ExportPayload, line: ExportPayload["slides"][number]["lines"][number]): string {
-  const notationHtml = payload.layout.showNotation && line.notation
-    ? `<div class="notation">${escapeHtml(line.notation)}</div>`
-    : "";
-  const lyricHtml = line.lyric ? `<div class="lyric">${escapeHtml(line.lyric)}</div>` : "";
-
-  return `<article class="line">${notationHtml}${lyricHtml}</article>`;
-}
-
-function getImageSize(payload: ExportPayload): ImageSize {
-  if (payload.output?.imageWidth && payload.output.imageHeight) {
-    return {
-      width: payload.output.imageWidth,
-      height: payload.output.imageHeight
-    };
+function renderLineHtml(
+  line: PlannedExportLine,
+  y: number,
+  contentWidth: number
+): string {
+  if (line.kind === "notation") {
+    return `<article class="line" style="top:${y}px;height:${line.displayHeight}px;">
+      <div class="notation-frame" style="width:${Math.min(line.displayWidth, contentWidth)}px;height:${line.displayHeight}px;">${line.svg}</div>
+    </article>`;
   }
 
-  if (payload.layout.slideSize === "LAYOUT_4X3" || payload.layout.slideSize === "4:3") {
-    return {
-      width: 1440,
-      height: 1080
-    };
-  }
-
-  return {
-    width: 1920,
-    height: 1080
-  };
+  return `<article class="line" style="top:${y}px;height:${line.displayHeight}px;">
+    <div class="lyric-frame" style="width:${contentWidth}px;height:${line.displayHeight}px;font-size:${line.fontSize}px;line-height:${line.lineHeight}px;">${escapeHtml(line.text)}</div>
+  </article>`;
 }
 
 function getThemeColors(theme: ExportPayload["layout"]["theme"]): ThemeColors {
@@ -251,7 +253,6 @@ function getThemeColors(theme: ExportPayload["layout"]["theme"]): ThemeColors {
       background: "101827",
       primaryText: "F8FAFC",
       secondaryText: "CBD5E1",
-      notationText: "FDE68A",
       lyricText: "F8FAFC",
       footerText: "94A3B8"
     };
@@ -261,30 +262,9 @@ function getThemeColors(theme: ExportPayload["layout"]["theme"]): ThemeColors {
     background: "FFFFFF",
     primaryText: "111827",
     secondaryText: "475569",
-    notationText: "1F2937",
     lyricText: "111827",
     footerText: "64748B"
   };
-}
-
-function getNotationFontSize(lineCount: number): number {
-  if (lineCount <= 4) {
-    return 46;
-  }
-  if (lineCount <= 7) {
-    return 38;
-  }
-  return 30;
-}
-
-function getLyricFontSize(lineCount: number): number {
-  if (lineCount <= 4) {
-    return 40;
-  }
-  if (lineCount <= 7) {
-    return 34;
-  }
-  return 27;
 }
 
 function escapeHtml(value: string): string {
