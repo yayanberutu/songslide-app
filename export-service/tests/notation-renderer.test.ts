@@ -62,6 +62,8 @@ describe("notation renderer", () => {
     assert.ok(rendered.svg.includes("<line"));
     assert.ok(rendered.svg.includes("<path"));
     assert.ok(rendered.svg.includes("Ku"));
+    assert.ok(rendered.width > 0);
+    assert.ok(rendered.height > 0);
     assert.ok(rendered.slotAnchors.length >= parseLyricSyllables("Ku i ngin me nye rah kan se lu").length - 1);
   });
 });

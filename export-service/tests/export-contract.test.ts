@@ -199,6 +199,68 @@ describe("export service contract", () => {
     }
   });
 
+  it("paginates dense PPTX slides instead of compressing them into one page", async () => {
+    const crowdedLines = Array.from({ length: 8 }, (_, index) => ({
+      notation: index % 2 === 0
+        ? "[3] | [(5 4) 3] | [(3 2) 1] [1 . .] [7 . 2] | ([1 . .] 1)"
+        : "5 .6 5 5 6 | 1 .2 1 .6 | [5 4 3] | (2 1 7)",
+      lyric: index % 2 === 0
+        ? "Ku i ngin me nye rah kan se lu"
+        : "Bi-la ku-re-nung do-sa-ku"
+    }));
+
+    const response = await request(app)
+      .post("/export/pptx")
+      .buffer(true)
+      .parse(binaryParser)
+      .send({
+        ...validPayload,
+        slides: [
+          {
+            ...validPayload.slides[0],
+            lines: crowdedLines
+          }
+        ]
+      });
+
+    assert.equal(response.status, 200);
+
+    const zip = await JSZip.loadAsync(response.body);
+    const slideFiles = Object.keys(zip.files).filter((path) => /^ppt\/slides\/slide\d+\.xml$/.test(path));
+    assert.ok(slideFiles.length >= 2);
+  });
+
+  it("paginates dense PNG slides instead of compressing them into one image", async () => {
+    const crowdedLines = Array.from({ length: 8 }, (_, index) => ({
+      notation: index % 2 === 0
+        ? "[3] | [(5 4) 3] | [(3 2) 1] [1 . .] [7 . 2] | ([1 . .] 1)"
+        : "5 .6 5 5 6 | 1 .2 1 .6 | [5 4 3] | (2 1 7)",
+      lyric: index % 2 === 0
+        ? "Ku i ngin me nye rah kan se lu"
+        : "Bi-la ku-re-nung do-sa-ku"
+    }));
+
+    const response = await request(app)
+      .post("/export/png")
+      .buffer(true)
+      .parse(binaryParser)
+      .send({
+        ...validPayload,
+        slides: [
+          {
+            ...validPayload.slides[0],
+            lines: crowdedLines
+          }
+        ]
+      });
+
+    assert.equal(response.status, 200);
+
+    const zip = await JSZip.loadAsync(response.body);
+    const pngFiles = Object.keys(zip.files).filter((path) => /^slide-\d{3}\.png$/.test(path));
+    assert.ok(pngFiles.length >= 2);
+  });
+
   it("generates PNG output for the dark theme", async () => {
     const response = await request(app)
       .post("/export/png")

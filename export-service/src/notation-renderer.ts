@@ -83,7 +83,7 @@ type ParseSequenceResult = {
   closed: boolean;
 };
 
-type RenderTheme = {
+export type RenderTheme = {
   notationText: string;
   lyricText: string;
 };
@@ -95,16 +95,18 @@ type RenderedToken = {
   firstNoteAnchor: number | null;
 };
 
-type RenderLineOptions = {
+export type RenderLineOptions = {
   notation: string;
   lyric?: string | null;
   theme: Pick<RenderTheme, "notationText" | "lyricText">;
 };
 
-type RenderedLine = {
+export type RenderedLine = {
   svg: string;
   issues: NotationParserIssue[];
   slotAnchors: number[];
+  width: number;
+  height: number;
 };
 
 const notePattern = /^([0-9])([',]*)(\/{1,2})?(-{1,2})?$/;
@@ -186,10 +188,13 @@ export function parseLyricSyllables(input: string | null | undefined): string[] 
 export function renderNotationLineSvg(options: RenderLineOptions): RenderedLine {
   const parsed = parseNotationLine(options.notation);
   if (parsed.issues.length > 0) {
+    const fallback = renderPlainNotationSvg(options.notation, options.lyric, options.theme);
     return {
-      svg: renderPlainNotationSvg(options.notation, options.lyric, options.theme),
+      svg: fallback.svg,
       issues: parsed.issues,
-      slotAnchors: []
+      slotAnchors: [],
+      width: fallback.width,
+      height: fallback.height
     };
   }
 
@@ -214,7 +219,9 @@ export function renderNotationLineSvg(options: RenderLineOptions): RenderedLine 
       "</svg>"
     ].join(""),
     issues: [],
-    slotAnchors: topLevel.slotAnchors
+    slotAnchors: topLevel.slotAnchors,
+    width,
+    height
   };
 }
 
@@ -641,17 +648,26 @@ function renderLyricText(anchorX: number, text: string, color: string): string {
   return `<text x="${anchorX}" y="${LYRIC_BASELINE_Y}" text-anchor="middle" dominant-baseline="middle" font-family="Aptos, Arial, sans-serif" font-size="22" font-weight="400" fill="#${color}">${escapeXml(text)}</text>`;
 }
 
-function renderPlainNotationSvg(notation: string, lyric: string | null | undefined, theme: RenderTheme): string {
+function renderPlainNotationSvg(
+  notation: string,
+  lyric: string | null | undefined,
+  theme: RenderTheme
+): { svg: string; width: number; height: number } {
   const hasLyric = Boolean(lyric && lyric.trim().length > 0);
   const height = hasLyric ? TOTAL_HEIGHT_WITH_LYRIC : TOTAL_HEIGHT_NOTATION_ONLY;
   const textY = hasLyric ? 24 : 28;
+  const width = 1200;
 
-  return [
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 ${height}" preserveAspectRatio="xMinYMid meet" role="img">`,
-    `<text x="0" y="${textY}" font-family="Courier New, ui-monospace, monospace" font-size="22" font-weight="700" fill="#${theme.notationText}">${escapeXml(notation)}</text>`,
-    hasLyric ? `<text x="0" y="${LYRIC_BASELINE_Y}" font-family="Aptos, Arial, sans-serif" font-size="22" fill="#${theme.lyricText}">${escapeXml(lyric ?? "")}</text>` : "",
-    "</svg>"
-  ].join("");
+  return {
+    svg: [
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMinYMid meet" role="img">`,
+      `<text x="0" y="${textY}" font-family="Courier New, ui-monospace, monospace" font-size="22" font-weight="700" fill="#${theme.notationText}">${escapeXml(notation)}</text>`,
+      hasLyric ? `<text x="0" y="${LYRIC_BASELINE_Y}" font-family="Aptos, Arial, sans-serif" font-size="22" fill="#${theme.lyricText}">${escapeXml(lyric ?? "")}</text>` : "",
+      "</svg>"
+    ].join(""),
+    width,
+    height
+  };
 }
 
 function isGroupChildToken(token: NotationToken): token is NotationGroupChildToken {
@@ -697,8 +713,11 @@ function escapeXml(value: string) {
 }
 
 export function buildNotationSvgDataUri(options: RenderLineOptions): string {
-  const rendered = renderNotationLineSvg(options);
-  const encoded = Buffer.from(rendered.svg, "utf-8").toString("base64");
+  return buildNotationSvgDataUriFromSvg(renderNotationLineSvg(options).svg);
+}
+
+export function buildNotationSvgDataUriFromSvg(svg: string): string {
+  const encoded = Buffer.from(svg, "utf-8").toString("base64");
   return `image/svg+xml;base64,${encoded}`;
 }
 
