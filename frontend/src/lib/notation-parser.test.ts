@@ -79,6 +79,10 @@ test("alignment respects nested beam and slur semantics", () => {
   const beamExtensionAlignment = alignNotationAndLyric("[4 .]", "Ka");
   const slurExtensionAlignment = alignNotationAndLyric("(4 . 5)", "Ka");
   const partialExtensionAlignment = alignNotationAndLyric("[(4 .) 5]", "Ka sih");
+  const slurAnchorAlignment = alignNotationAndLyric("[(5 4) 3]", "i ngin");
+  const longSlurAlignment = alignNotationAndLyric("(5 4 3 4 5 3 4) 1 2 3", "u Tu han ku");
+  const secondAnchorAlignment = alignNotationAndLyric("[(3 2) 1]", "me nye");
+  const nestedSlurAnchorAlignment = alignNotationAndLyric("([1 . .] 1)", "lu");
 
   assert.equal(slurAlignment.status, "MATCH");
   assert.equal(slurAlignment.notationSlotCount, 4);
@@ -109,4 +113,21 @@ test("alignment respects nested beam and slur semantics", () => {
 
   assert.equal(partialExtensionAlignment.status, "MATCH");
   assert.equal(partialExtensionAlignment.notationSlotCount, 2);
+
+  assert.equal(slurAnchorAlignment.status, "MATCH");
+  assert.equal(slurAnchorAlignment.cells[0]?.anchorToken?.degree, "5");
+  assert.equal(slurAnchorAlignment.cells[1]?.anchorToken?.degree, "3");
+
+  assert.equal(longSlurAlignment.status, "MATCH");
+  assert.equal(longSlurAlignment.cells[0]?.anchorToken?.degree, "5");
+  assert.equal(longSlurAlignment.cells[1]?.anchorToken?.degree, "1");
+  assert.equal(longSlurAlignment.cells[2]?.anchorToken?.degree, "2");
+  assert.equal(longSlurAlignment.cells[3]?.anchorToken?.degree, "3");
+
+  assert.equal(secondAnchorAlignment.status, "MATCH");
+  assert.equal(secondAnchorAlignment.cells[0]?.anchorToken?.degree, "3");
+  assert.equal(secondAnchorAlignment.cells[1]?.anchorToken?.degree, "1");
+
+  assert.equal(nestedSlurAnchorAlignment.status, "MATCH");
+  assert.equal(nestedSlurAnchorAlignment.cells[0]?.anchorToken?.degree, "1");
 });

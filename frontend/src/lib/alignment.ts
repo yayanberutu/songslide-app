@@ -2,6 +2,7 @@ import {
   collectLyricSlotTokens,
   countNotationLyricSlots,
   parseNotationLine,
+  type NotationNoteToken,
   type NotationLyricSlotToken,
   type NotationParseResult
 } from "./notation-parser";
@@ -11,6 +12,7 @@ export type AlignmentStatus = "MATCH" | "TOO_MANY_LYRICS" | "TOO_FEW_LYRICS" | "
 
 export type AlignmentCell = {
   notationToken: NotationLyricSlotToken | null;
+  anchorToken: NotationNoteToken | null;
   lyric: LyricSyllable | null;
 };
 
@@ -37,6 +39,7 @@ export function alignNotationAndLyric(notationText: string | null | undefined, l
     const lyric = lyricSyllables[index];
     cells.push({
       notationToken: notationToken ?? null,
+      anchorToken: notationToken ? resolveAnchorToken(notationToken) : null,
       lyric: lyric ?? null
     });
   }
@@ -82,4 +85,29 @@ export function alignNotationAndLyric(notationText: string | null | undefined, l
     lyricCount,
     cells
   };
+}
+
+function resolveAnchorToken(token: NotationLyricSlotToken): NotationNoteToken | null {
+  if (token.type === "NOTE") {
+    return token;
+  }
+
+  return findFirstRenderableNote(token.children);
+}
+
+function findFirstRenderableNote(tokens: readonly NotationParseResult["tokens"][number][]): NotationNoteToken | null {
+  for (const token of tokens) {
+    if (token.type === "NOTE") {
+      return token;
+    }
+
+    if (token.type === "SLUR" || token.type === "BEAM") {
+      const nested = findFirstRenderableNote(token.children);
+      if (nested) {
+        return nested;
+      }
+    }
+  }
+
+  return null;
 }
