@@ -107,6 +107,16 @@ export type RenderedLine = {
   slotAnchors: number[];
   width: number;
   height: number;
+  lyricPlacements: LyricPlacement[];
+};
+
+export type LyricPlacement = {
+  text: string;
+  anchorX: number;
+  centerX: number;
+  width: number;
+  left: number;
+  right: number;
 };
 
 const notePattern = /^([0-9])([',]*)(\/{1,2})?(-{1,2})?$/;
@@ -133,6 +143,9 @@ const BEAM_LEVEL_ONE_Y = 8;
 const BEAM_LEVEL_TWO_Y = 13;
 const SLUR_BASE_Y = 46;
 const LYRIC_BASELINE_Y = 73;
+const LYRIC_FONT_SIZE = 22;
+const LYRIC_HORIZONTAL_PADDING = 8;
+const LYRIC_MIN_GAP = 6;
 
 export function parseNotationLine(input: string | null | undefined): NotationParseResult {
   const source = input?.trim() ?? "";
@@ -194,7 +207,8 @@ export function renderNotationLineSvg(options: RenderLineOptions): RenderedLine 
       issues: parsed.issues,
       slotAnchors: [],
       width: fallback.width,
-      height: fallback.height
+      height: fallback.height,
+      lyricPlacements: []
     };
   }
 
@@ -202,14 +216,22 @@ export function renderNotationLineSvg(options: RenderLineOptions): RenderedLine 
   const lyricSyllables = parseLyricSyllables(options.lyric);
   const hasLyric = lyricSyllables.length > 0;
   const height = hasLyric ? TOTAL_HEIGHT_WITH_LYRIC : TOTAL_HEIGHT_NOTATION_ONLY;
-  const width = Math.max(Math.ceil(topLevel.width), 1);
+  const lyricPlacements = hasLyric
+    ? resolveLyricPlacements(
+        topLevel.slotAnchors,
+        lyricSyllables.slice(0, topLevel.slotAnchors.length),
+        Math.max(topLevel.width, 1)
+      )
+    : [];
+  const width = Math.max(
+    Math.ceil(topLevel.width),
+    Math.ceil(lyricPlacements.reduce((maxRight, placement) => Math.max(maxRight, placement.right), 0)),
+    1
+  );
 
-  const lyricMarkup = hasLyric
-    ? lyricSyllables
-        .slice(0, topLevel.slotAnchors.length)
-        .map((syllable, index) => renderLyricText(topLevel.slotAnchors[index], syllable, options.theme.lyricText))
-        .join("")
-    : "";
+  const lyricMarkup = lyricPlacements
+    .map((placement) => renderLyricText(placement.centerX, placement.text, options.theme.lyricText))
+    .join("");
 
   return {
     svg: [
@@ -221,7 +243,8 @@ export function renderNotationLineSvg(options: RenderLineOptions): RenderedLine 
     issues: [],
     slotAnchors: topLevel.slotAnchors,
     width,
-    height
+    height,
+    lyricPlacements
   };
 }
 
@@ -645,7 +668,7 @@ function renderBeamToken(token: NotationBeamToken, x: number, beamDepth: number,
 }
 
 function renderLyricText(anchorX: number, text: string, color: string): string {
-  return `<text x="${anchorX}" y="${LYRIC_BASELINE_Y}" text-anchor="middle" dominant-baseline="middle" font-family="Aptos, Arial, sans-serif" font-size="22" font-weight="400" fill="#${color}">${escapeXml(text)}</text>`;
+  return `<text x="${anchorX}" y="${LYRIC_BASELINE_Y}" text-anchor="middle" dominant-baseline="middle" font-family="Aptos, Arial, sans-serif" font-size="${LYRIC_FONT_SIZE}" font-weight="400" fill="#${color}">${escapeXml(text)}</text>`;
 }
 
 function renderPlainNotationSvg(
@@ -697,6 +720,88 @@ function findFirstRenderableNote(tokens: readonly NotationToken[]): NotationNote
   }
 
   return null;
+}
+
+function resolveLyricPlacements(
+  anchors: readonly number[],
+  syllables: readonly string[],
+  notationWidth: number
+): LyricPlacement[] {
+  const placements: LyricPlacement[] = [];
+  let previousRight = 0;
+
+  syllables.forEach((text, index) => {
+    const width = estimateLyricTextWidth(text);
+    const anchorX = anchors[index] ?? previousRight;
+    const minCenter = width / 2;
+    const collisionCenter = previousRight > 0
+      ? previousRight + LYRIC_MIN_GAP + width / 2
+      : minCenter;
+    const centerX = Math.max(anchorX, minCenter, collisionCenter);
+    const left = centerX - width / 2;
+    const right = centerX + width / 2;
+    placements.push({
+      text,
+      anchorX,
+      centerX,
+      width,
+      left,
+      right
+    });
+    previousRight = right;
+  });
+
+  if (placements.length === 0) {
+    return placements;
+  }
+
+  const maxRight = placements[placements.length - 1]?.right ?? notationWidth;
+  const minLeft = placements[0]?.left ?? 0;
+  const overflow = Math.max(0, maxRight - notationWidth);
+  const shiftLeft = Math.min(overflow, Math.max(0, minLeft));
+
+  if (shiftLeft > 0) {
+    placements.forEach((placement) => {
+      placement.centerX -= shiftLeft;
+      placement.left -= shiftLeft;
+      placement.right -= shiftLeft;
+    });
+  }
+
+  return placements;
+}
+
+function estimateLyricTextWidth(text: string) {
+  const estimated = [...text].reduce((total, character) => total + characterWidthFactor(character), 0) * LYRIC_FONT_SIZE;
+  return Math.max(18, Math.ceil(estimated + LYRIC_HORIZONTAL_PADDING));
+}
+
+function characterWidthFactor(character: string) {
+  if (/[ilj'.,]/.test(character)) {
+    return 0.28;
+  }
+
+  if (/[- ]/.test(character)) {
+    return 0.34;
+  }
+
+  if (/[frtI]/.test(character)) {
+    return 0.38;
+  }
+
+  if (/[mwMW]/.test(character)) {
+    return 0.9;
+  }
+
+  if (/[A-Z]/.test(character)) {
+    return 0.7;
+  }
+
+  if (/[0-9]/.test(character)) {
+    return 0.58;
+  }
+
+  return 0.56;
 }
 
 function capitalize(value: string) {

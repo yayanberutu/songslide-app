@@ -64,6 +64,58 @@ describe("notation renderer", () => {
     assert.ok(rendered.svg.includes("Ku"));
     assert.ok(rendered.width > 0);
     assert.ok(rendered.height > 0);
+    assert.equal(rendered.lyricPlacements.length, parseLyricSyllables("Ku i ngin me nye rah kan se lu").length);
     assert.ok(rendered.slotAnchors.length >= parseLyricSyllables("Ku i ngin me nye rah kan se lu").length - 1);
+  });
+
+  it("avoids lyric overlap for closely spaced syllables", () => {
+    const rendered = renderNotationLineSvg({
+      notation: "1 2 3",
+      lyric: "mat Nya Yang",
+      theme: {
+        notationText: "1F2937",
+        lyricText: "111827"
+      }
+    });
+
+    assert.equal(rendered.issues.length, 0);
+    assert.equal(rendered.lyricPlacements.length, 3);
+    assert.equal(rendered.lyricPlacements[0]?.text, "mat");
+    assert.equal(rendered.lyricPlacements[1]?.text, "Nya");
+    assert.equal(rendered.lyricPlacements[2]?.text, "Yang");
+
+    rendered.lyricPlacements.forEach((placement, index) => {
+      assert.equal(placement.anchorX, rendered.slotAnchors[index]);
+      if (index > 0) {
+        const previous = rendered.lyricPlacements[index - 1];
+        assert.ok(previous.right < placement.left);
+      }
+    });
+  });
+
+  it("keeps later lyric labels readable when anchors are crowded", () => {
+    const rendered = renderNotationLineSvg({
+      notation: "[(5 4) 3] 2 1",
+      lyric: "ma Nya takh",
+      theme: {
+        notationText: "1F2937",
+        lyricText: "111827"
+      }
+    });
+
+    assert.equal(rendered.issues.length, 0);
+    assert.equal(rendered.lyricPlacements.length, 3);
+    assert.equal(rendered.lyricPlacements[0]?.text, "ma");
+    assert.equal(rendered.lyricPlacements[1]?.text, "Nya");
+    assert.equal(rendered.lyricPlacements[2]?.text, "takh");
+    assert.ok((rendered.lyricPlacements[0]?.anchorX ?? 0) <= (rendered.lyricPlacements[1]?.anchorX ?? 0));
+    assert.ok((rendered.lyricPlacements[1]?.anchorX ?? 0) <= (rendered.lyricPlacements[2]?.anchorX ?? 0));
+
+    rendered.lyricPlacements.forEach((placement, index) => {
+      if (index > 0) {
+        const previous = rendered.lyricPlacements[index - 1];
+        assert.ok(previous.right < placement.left);
+      }
+    });
   });
 });
