@@ -17,6 +17,7 @@ import {
   type VerseSection
 } from "@/lib/arrangement-api";
 import { getSong, type Song } from "@/lib/song-api";
+import { AlignmentStatus } from "@/components/notation/AlignmentStatus";
 import { SourceImageReference } from "@/components/source-images/source-image-reference";
 import { Button, EmptyState, Field, InlineError, LoadingState, TextArea, TextInput } from "@/components/ui";
 
@@ -383,19 +384,25 @@ function VerseSectionEditor({
                 </Field>
                 <div className="grid gap-3 md:grid-cols-2">
                   {verseNumbers.map((verseNumber) => (
-                    <Field key={verseNumber} label={`Verse ${verseNumber} lyric`}>
-                      <TextInput
-                        value={line.lyricsByVerse?.[verseNumber] ?? ""}
-                        onChange={(event) => updateLine(index, {
-                          ...line,
-                          lyricsByVerse: {
-                            ...(line.lyricsByVerse ?? {}),
-                            [verseNumber]: event.target.value
-                          }
-                        })}
-                        placeholder={`Lyric for verse ${verseNumber}`}
+                    <div key={verseNumber} className="space-y-2">
+                      <Field label={`Verse ${verseNumber} lyric`}>
+                        <TextInput
+                          value={line.lyricsByVerse?.[verseNumber] ?? ""}
+                          onChange={(event) => updateLine(index, {
+                            ...line,
+                            lyricsByVerse: {
+                              ...(line.lyricsByVerse ?? {}),
+                              [verseNumber]: event.target.value
+                            }
+                          })}
+                          placeholder={`Lyric for verse ${verseNumber}`}
+                        />
+                      </Field>
+                      <AlignmentStatus
+                        notation={line.notation}
+                        lyric={line.lyricsByVerse?.[verseNumber] ?? ""}
                       />
-                    </Field>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -467,6 +474,7 @@ function RefrainSectionEditor({
                   />
                 </Field>
               </div>
+              <AlignmentStatus notation={line.notation} lyric={line.lyric} />
             </div>
           ))}
         </div>
