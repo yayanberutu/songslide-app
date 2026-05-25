@@ -24,10 +24,12 @@ export function NotationLine({ notation, theme = "LIGHT" }: NotationLineProps) {
   }
 
   return (
-    <div className="flex flex-wrap items-end gap-x-1 gap-y-2">
-      {result.tokens.map((token, index) => (
-        <NotationToken key={`${token.raw}-${index}`} token={token} theme={theme} />
-      ))}
+    <div className="max-w-full overflow-x-auto pb-1">
+      <div className="flex flex-wrap items-end gap-x-1 gap-y-2">
+        {result.tokens.map((token, index) => (
+          <NotationToken key={`${token.raw}-${index}`} token={token} theme={theme} />
+        ))}
+      </div>
     </div>
   );
 }

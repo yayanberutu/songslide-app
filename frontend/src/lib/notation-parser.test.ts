@@ -1,0 +1,68 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { alignNotationAndLyric } from "./alignment";
+import { countNotationLyricSlots, parseNotationLine } from "./notation-parser";
+
+test("parses octave, legacy duration, and hold markers", () => {
+  const parsed = parseNotationLine("1' 1, 1/ 1// 1-");
+
+  assert.equal(parsed.issues.length, 0);
+  assert.equal(parsed.tokens.length, 5);
+
+  assert.equal(parsed.tokens[0]?.type, "NOTE");
+  assert.equal(parsed.tokens[0]?.octave, 1);
+
+  assert.equal(parsed.tokens[1]?.type, "NOTE");
+  assert.equal(parsed.tokens[1]?.octave, -1);
+
+  assert.equal(parsed.tokens[2]?.type, "NOTE");
+  assert.equal(parsed.tokens[2]?.shortDurationLevel, 1);
+
+  assert.equal(parsed.tokens[3]?.type, "NOTE");
+  assert.equal(parsed.tokens[3]?.shortDurationLevel, 2);
+
+  assert.equal(parsed.tokens[4]?.type, "NOTE");
+  assert.equal(parsed.tokens[4]?.holdCount, 1);
+});
+
+test("parses beam and slur groups with correct lyric slot counts", () => {
+  assert.equal(countNotationLyricSlots(parseNotationLine("[4 5]").tokens), 2);
+  assert.equal(countNotationLyricSlots(parseNotationLine("[4 5 6]").tokens), 3);
+  assert.equal(countNotationLyricSlots(parseNotationLine("(4 3 2)").tokens), 1);
+  assert.equal(countNotationLyricSlots(parseNotationLine("([4 5 6])").tokens), 1);
+  assert.equal(countNotationLyricSlots(parseNotationLine("[(4 5) 6]").tokens), 2);
+  assert.equal(countNotationLyricSlots(parseNotationLine("[4 (5 6)]").tokens), 2);
+});
+
+test("reports invalid note tokens and unclosed groups", () => {
+  const invalid = parseNotationLine("1 8 3");
+  const unclosedSlur = parseNotationLine("(4 5");
+  const unclosedBeam = parseNotationLine("[4 5");
+
+  assert.ok(invalid.issues.some((issue) => issue.code === "INVALID_NOTE_DEGREE" && issue.raw === "8"));
+  assert.ok(unclosedSlur.issues.some((issue) => issue.code === "UNCLOSED_SLUR_GROUP"));
+  assert.ok(unclosedBeam.issues.some((issue) => issue.code === "UNCLOSED_BEAM_GROUP"));
+});
+
+test("alignment respects nested beam and slur semantics", () => {
+  const slurAlignment = alignNotationAndLyric("1 2 (4 3 2) 1", "Ka sih sa yang");
+  const beamAlignment = alignNotationAndLyric("[4 5]", "Ka sih");
+  const beamSlurAlignment = alignNotationAndLyric("([4 5 6])", "Ka");
+  const partialSlurAlignment = alignNotationAndLyric("[(4 5) 6]", "Ka sih");
+  const nestedAlignment = alignNotationAndLyric("[4 (5 6)]", "Ka sih");
+
+  assert.equal(slurAlignment.status, "MATCH");
+  assert.equal(slurAlignment.notationSlotCount, 4);
+
+  assert.equal(beamAlignment.status, "MATCH");
+  assert.equal(beamAlignment.notationSlotCount, 2);
+
+  assert.equal(beamSlurAlignment.status, "MATCH");
+  assert.equal(beamSlurAlignment.notationSlotCount, 1);
+
+  assert.equal(partialSlurAlignment.status, "MATCH");
+  assert.equal(partialSlurAlignment.notationSlotCount, 2);
+
+  assert.equal(nestedAlignment.status, "MATCH");
+  assert.equal(nestedAlignment.notationSlotCount, 2);
+});

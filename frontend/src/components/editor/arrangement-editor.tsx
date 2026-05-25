@@ -359,6 +359,8 @@ function VerseSectionEditor({
         </div>
       </div>
 
+      <NotationSyntaxHint />
+
       {section.lines.length === 0 ? (
         <EmptyState title="No verse lines" description="Add a line to enter notation and verse lyrics." />
       ) : (
@@ -443,6 +445,8 @@ function RefrainSectionEditor({
 
   return (
     <div className="space-y-4">
+      <NotationSyntaxHint />
+
       {section.lines.length === 0 ? (
         <EmptyState title="No refrain lines" description="Add a refrain line to enter notation and lyric text." />
       ) : (
@@ -592,6 +596,14 @@ function LineActions({
       <Button type="button" onClick={() => onMove(1)} disabled={index === total - 1}>Move line down</Button>
       <Button type="button" variant="danger" onClick={onDelete}>Delete line</Button>
     </div>
+  );
+}
+
+function NotationSyntaxHint() {
+  return (
+    <p className="rounded-md bg-zinc-50 px-3 py-2 text-xs leading-5 text-ink-500">
+      Examples: `1&apos;` high, `1,` low, `[4 5]` beam, `(4 5)` slur, `([4 5 6])` beam + slur, `[(4 5) 6]` partial slur.
+    </p>
   );
 }
 

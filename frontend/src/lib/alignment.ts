@@ -1,16 +1,16 @@
 import {
+  collectLyricSlotTokens,
   countNotationLyricSlots,
   parseNotationLine,
-  type NotationNoteToken,
-  type NotationParseResult,
-  type NotationSlurToken
-} from "@/lib/notation-parser";
-import { parseLyricSyllables, type LyricSyllable } from "@/lib/lyric-parser";
+  type NotationLyricSlotToken,
+  type NotationParseResult
+} from "./notation-parser";
+import { parseLyricSyllables, type LyricSyllable } from "./lyric-parser";
 
 export type AlignmentStatus = "MATCH" | "TOO_MANY_LYRICS" | "TOO_FEW_LYRICS" | "PARSER_ERROR";
 
 export type AlignmentCell = {
-  notationToken: NotationNoteToken | NotationSlurToken | null;
+  notationToken: NotationLyricSlotToken | null;
   lyric: LyricSyllable | null;
 };
 
@@ -26,7 +26,7 @@ export type AlignmentResult = {
 export function alignNotationAndLyric(notationText: string | null | undefined, lyricText: string | null | undefined): AlignmentResult {
   const notation = parseNotationLine(notationText);
   const lyricSyllables = parseLyricSyllables(lyricText);
-  const notationTokens = notation.tokens.filter((token) => token.lyricSlots === 1);
+  const notationTokens = collectLyricSlotTokens(notation.tokens);
   const notationSlotCount = countNotationLyricSlots(notation.tokens);
   const lyricCount = lyricSyllables.length;
   const cells: AlignmentCell[] = [];
@@ -36,7 +36,7 @@ export function alignNotationAndLyric(notationText: string | null | undefined, l
     const notationToken = notationTokens[index];
     const lyric = lyricSyllables[index];
     cells.push({
-      notationToken: notationToken?.type === "NOTE" || notationToken?.type === "SLUR" ? notationToken : null,
+      notationToken: notationToken ?? null,
       lyric: lyric ?? null
     });
   }
