@@ -1,5 +1,6 @@
 import JSZip from "jszip";
 import { chromium } from "playwright";
+import { createNotationTheme, renderNotationLineSvg } from "./notation-renderer";
 import type { ExportPayload } from "./schemas";
 
 const PNG_ZIP_MIME_TYPE = "application/zip";
@@ -90,12 +91,12 @@ function renderSlideHtml(payload: ExportPayload, slideIndex: number, imageSize: 
   const slide = payload.slides[slideIndex];
   const colors = getThemeColors(payload.layout.theme);
   const lineCount = slide.lines.length;
-  const notationFontSize = getNotationFontSize(lineCount);
   const lyricFontSize = getLyricFontSize(lineCount);
   const lineGap = lineCount <= 4 ? 26 : lineCount <= 7 ? 18 : 10;
   const detailText = [slide.subtitle, slide.metadata]
     .filter((value): value is string => Boolean(value && value.trim()))
     .join(" | ");
+  const notationTheme = createNotationTheme(payload.layout.theme);
 
   return `<!doctype html>
 <html lang="id">
@@ -174,12 +175,14 @@ function renderSlideHtml(payload: ExportPayload, slideIndex: number, imageSize: 
     }
 
     .notation {
-      color: #${colors.notationText};
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      font-size: ${notationFontSize}px;
-      font-weight: 760;
-      line-height: 1.12;
-      max-height: ${Math.ceil(notationFontSize * 2.4)}px;
+      max-height: 154px;
+    }
+
+    .notation svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      max-height: 154px;
     }
 
     .lyric {
@@ -207,7 +210,7 @@ function renderSlideHtml(payload: ExportPayload, slideIndex: number, imageSize: 
     </section>
     <div aria-hidden="true"></div>
     <section class="lines">
-      ${slide.lines.map((line) => renderLineHtml(payload, line)).join("")}
+      ${slide.lines.map((line) => renderLineHtml(payload, line, notationTheme)).join("")}
     </section>
     <footer class="footer">${slideIndex + 1} / ${payload.slides.length}</footer>
   </main>
@@ -215,11 +218,19 @@ function renderSlideHtml(payload: ExportPayload, slideIndex: number, imageSize: 
 </html>`;
 }
 
-function renderLineHtml(payload: ExportPayload, line: ExportPayload["slides"][number]["lines"][number]): string {
+function renderLineHtml(
+  payload: ExportPayload,
+  line: ExportPayload["slides"][number]["lines"][number],
+  notationTheme: ReturnType<typeof createNotationTheme>
+): string {
   const notationHtml = payload.layout.showNotation && line.notation
-    ? `<div class="notation">${escapeHtml(line.notation)}</div>`
+    ? `<div class="notation">${renderNotationLineSvg({
+        notation: line.notation,
+        lyric: line.lyric ?? null,
+        theme: notationTheme
+      }).svg}</div>`
     : "";
-  const lyricHtml = line.lyric ? `<div class="lyric">${escapeHtml(line.lyric)}</div>` : "";
+  const lyricHtml = !notationHtml && line.lyric ? `<div class="lyric">${escapeHtml(line.lyric)}</div>` : "";
 
   return `<article class="line">${notationHtml}${lyricHtml}</article>`;
 }
@@ -265,16 +276,6 @@ function getThemeColors(theme: ExportPayload["layout"]["theme"]): ThemeColors {
     lyricText: "111827",
     footerText: "64748B"
   };
-}
-
-function getNotationFontSize(lineCount: number): number {
-  if (lineCount <= 4) {
-    return 46;
-  }
-  if (lineCount <= 7) {
-    return 38;
-  }
-  return 30;
 }
 
 function getLyricFontSize(lineCount: number): number {

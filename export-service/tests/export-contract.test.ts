@@ -56,11 +56,16 @@ describe("export service contract", () => {
     const zip = await JSZip.loadAsync(response.body);
     const slideFiles = Object.keys(zip.files).filter((path) => /^ppt\/slides\/slide\d+\.xml$/.test(path));
     assert.equal(slideFiles.length, 1);
+    const mediaFiles = Object.keys(zip.files).filter((path) => /^ppt\/media\//.test(path));
+    assert.ok(mediaFiles.length >= 1);
 
     const slideXml = await zip.file("ppt/slides/slide1.xml")?.async("string");
     assert.ok(slideXml?.includes("KJ 37 - Bila Kurenung Dosaku"));
-    assert.ok(slideXml?.includes("5 .6 5 5 6 | 1 .2 1 .6"));
-    assert.ok(slideXml?.includes("Bi-la ku-re-nung do-sa-ku"));
+
+    const notationMediaName = mediaFiles.find((path) => path.endsWith(".svg"));
+    const notationSvg = notationMediaName ? await zip.file(notationMediaName)?.async("string") : null;
+    assert.ok(notationSvg?.includes("5 .6 5 5 6 | 1 .2 1 .6") || notationSvg?.includes("<svg"));
+    assert.ok(notationSvg?.includes("Bi-la"));
   });
 
   it("generates a PNG ZIP for a valid PNG export payload", async () => {

@@ -1,4 +1,5 @@
 import pptxgen from "pptxgenjs";
+import { buildNotationSvgDataUri, createNotationTheme } from "./notation-renderer";
 import type { ExportPayload } from "./schemas";
 
 const PPTX_MIME_TYPE = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
@@ -76,8 +77,8 @@ export async function generatePptx(payload: ExportPayload): Promise<Buffer> {
     const bodyH = slideSize.height - bodyY - footerH - 0.24;
     const lines = slidePayload.lines;
     const blockH = Math.min(0.86, Math.max(0.46, bodyH / Math.max(lines.length, 1)));
-    const notationFontSize = getNotationFontSize(lines.length);
     const lyricFontSize = getLyricFontSize(lines.length);
+    const notationTheme = createNotationTheme(payload.layout.theme);
 
     lines.forEach((line, lineIndex) => {
       const y = bodyY + lineIndex * blockH;
@@ -85,26 +86,26 @@ export async function generatePptx(payload: ExportPayload): Promise<Buffer> {
       const hasLyric = Boolean(line.lyric);
 
       if (hasNotation && line.notation) {
-        slide.addText(line.notation, {
+        slide.addImage({
           x: bodyX,
           y,
           w: bodyW,
-          h: hasLyric ? blockH * 0.42 : blockH * 0.72,
-          margin: 0,
-          fontFace: "Courier New",
-          fontSize: notationFontSize,
-          bold: true,
-          color: colors.notationText,
-          fit: "shrink"
+          h: hasLyric ? blockH * 0.84 : blockH * 0.58,
+          data: buildNotationSvgDataUri({
+            notation: line.notation,
+            lyric: hasLyric ? line.lyric : null,
+            theme: notationTheme
+          }),
+          altText: "Numbered notation export"
         });
       }
 
-      if (hasLyric && line.lyric) {
+      if (!hasNotation && hasLyric && line.lyric) {
         slide.addText(line.lyric, {
           x: bodyX,
-          y: hasNotation ? y + blockH * 0.43 : y + blockH * 0.08,
+          y: y + blockH * 0.08,
           w: bodyW,
-          h: hasNotation ? blockH * 0.42 : blockH * 0.64,
+          h: blockH * 0.64,
           margin: 0,
           fontFace: "Aptos",
           fontSize: lyricFontSize,
@@ -178,16 +179,6 @@ function getThemeColors(theme: ExportPayload["layout"]["theme"]): ThemeColors {
     lyricText: "111827",
     footerText: "64748B"
   };
-}
-
-function getNotationFontSize(lineCount: number): number {
-  if (lineCount <= 4) {
-    return 20;
-  }
-  if (lineCount <= 7) {
-    return 16;
-  }
-  return 13;
 }
 
 function getLyricFontSize(lineCount: number): number {
