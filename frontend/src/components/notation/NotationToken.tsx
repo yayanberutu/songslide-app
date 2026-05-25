@@ -37,7 +37,7 @@ export function NotationToken({
       <span className={`${notationArea} w-3`}>
         <span
           aria-hidden="true"
-          className={`absolute top-[1.15rem] left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full ${isDark ? "bg-zinc-100" : "bg-ink-700"}`}
+          className={`absolute top-[1.45rem] left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full ${isDark ? "bg-zinc-100" : "bg-ink-700"}`}
         />
       </span>
     );
