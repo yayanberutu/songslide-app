@@ -40,8 +40,12 @@ describe("export layout", () => {
     assert.ok(small.titleFontSize < medium.titleFontSize);
     assert.ok(large.titleFontSize > medium.titleFontSize);
     assert.ok(small.renderMetrics.lyricFontSize < medium.renderMetrics.lyricFontSize);
-    assert.ok(large.renderMetrics.noteFontSize > medium.renderMetrics.noteFontSize);
+    assert.ok(large.renderMetrics.noteFontSize > medium.renderMetrics.noteFontSize * 1.2);
     assert.ok(large.bodyGap > medium.bodyGap);
+    assert.ok(medium.outerPaddingX < small.outerPaddingX);
+    assert.ok(large.outerPaddingX < medium.outerPaddingX);
+    assert.ok(medium.subtitleFontSize < medium.renderMetrics.noteFontSize * 2);
+    assert.ok(large.metadataFontSize < large.renderMetrics.lyricFontSize);
   });
 
   it("adds page labels when a slide is paginated", () => {
@@ -85,5 +89,14 @@ describe("export layout", () => {
 
     assert.ok((smallPlan.pages[0]?.lines.length ?? 0) > (largePlan.pages[0]?.lines.length ?? 0));
     assert.ok(smallPlan.pages.length <= largePlan.pages.length);
+  });
+
+  it("uses the slide width more aggressively for notation content", () => {
+    const mediumPlan = buildExportRenderPlan(crowdedSlidePayload, surface);
+    const notationLine = mediumPlan.pages[0]?.lines.find((line) => line.kind === "notation");
+
+    assert.ok(mediumPlan.frame.contentWidth > 1760);
+    assert.ok(notationLine);
+    assert.ok(notationLine?.kind === "notation" && notationLine.displayWidth > 900);
   });
 });

@@ -15,10 +15,76 @@ const BASE_SURFACE_WIDTH = 1920;
 const BASE_SURFACE_HEIGHT = 1080;
 const TEXT_WIDTH_FACTOR = 0.56;
 
-const PRESET_FACTORS = {
-  SMALL: 0.86,
-  MEDIUM: 1,
-  LARGE: 1.18
+const PRESET_CONFIG = {
+  SMALL: {
+    renderScale: 0.86,
+    sidePadding: 84,
+    topPadding: 60,
+    bottomPadding: 44,
+    titleFontSize: 23,
+    titleLineHeight: 28,
+    titleGap: 8,
+    subtitleFontSize: 38,
+    subtitleLineHeight: 44,
+    subtitleGap: 8,
+    metadataFontSize: 18,
+    metadataLineHeight: 22,
+    dividerGapTop: 14,
+    dividerGapBottom: 18,
+    dividerThickness: 2,
+    bodyGap: 14,
+    lyricOnlyFontSize: 34,
+    lyricOnlyLineHeight: 42,
+    notationScale: 1.36,
+    footerFontSize: 16,
+    footerHeight: 20
+  },
+  MEDIUM: {
+    renderScale: 1.04,
+    sidePadding: 72,
+    topPadding: 58,
+    bottomPadding: 44,
+    titleFontSize: 24,
+    titleLineHeight: 30,
+    titleGap: 8,
+    subtitleFontSize: 42,
+    subtitleLineHeight: 48,
+    subtitleGap: 8,
+    metadataFontSize: 19,
+    metadataLineHeight: 24,
+    dividerGapTop: 14,
+    dividerGapBottom: 20,
+    dividerThickness: 2,
+    bodyGap: 16,
+    lyricOnlyFontSize: 40,
+    lyricOnlyLineHeight: 48,
+    notationScale: 1.5,
+    footerFontSize: 16,
+    footerHeight: 20
+  },
+  LARGE: {
+    renderScale: 1.32,
+    sidePadding: 64,
+    topPadding: 58,
+    bottomPadding: 44,
+    titleFontSize: 25,
+    titleLineHeight: 31,
+    titleGap: 8,
+    subtitleFontSize: 45,
+    subtitleLineHeight: 52,
+    subtitleGap: 8,
+    metadataFontSize: 20,
+    metadataLineHeight: 25,
+    dividerGapTop: 15,
+    dividerGapBottom: 22,
+    dividerThickness: 2,
+    bodyGap: 18,
+    lyricOnlyFontSize: 46,
+    lyricOnlyLineHeight: 56,
+    notationScale: 1.76,
+    footerFontSize: 17,
+    footerHeight: 22
+  }
 } as const;
 
 export type ExportSurfaceSize = {
@@ -173,33 +239,33 @@ export function createLayoutTokens(
   textSizePreset: ExportPayload["layout"]["textSizePreset"] = "MEDIUM"
 ): ExportLayoutTokens {
   const surfaceScale = Math.min(surface.width / BASE_SURFACE_WIDTH, surface.height / BASE_SURFACE_HEIGHT);
-  const presetScale = PRESET_FACTORS[textSizePreset];
-  const scale = surfaceScale * presetScale;
-  const renderMetrics = createRenderMetrics(presetScale);
+  const preset = PRESET_CONFIG[textSizePreset];
+  const scale = surfaceScale;
+  const renderMetrics = createRenderMetrics(preset.renderScale * surfaceScale);
 
   return {
     textSizePreset,
-    outerPaddingX: scaleValue(96, scale),
-    outerPaddingTop: scaleValue(68, scale),
-    outerPaddingBottom: scaleValue(52, scale),
-    titleFontSize: scaleValue(26, scale),
-    titleLineHeight: scaleValue(32, scale),
-    titleGap: scaleValue(10, scale),
-    subtitleFontSize: scaleValue(54, scale),
-    subtitleLineHeight: scaleValue(62, scale),
-    subtitleGap: scaleValue(10, scale),
-    metadataFontSize: scaleValue(24, scale),
-    metadataLineHeight: scaleValue(30, scale),
-    dividerGapTop: scaleValue(18, scale),
-    dividerGapBottom: scaleValue(24, scale),
-    dividerThickness: Math.max(1, scaleValue(2, scale)),
-    bodyGap: scaleValue(18, scale),
-    lyricOnlyFontSize: scaleValue(38, scale),
-    lyricOnlyLineHeight: scaleValue(48, scale),
-    notationScale: 1.24 * surfaceScale,
+    outerPaddingX: scaleValue(preset.sidePadding, scale),
+    outerPaddingTop: scaleValue(preset.topPadding, scale),
+    outerPaddingBottom: scaleValue(preset.bottomPadding, scale),
+    titleFontSize: scaleValue(preset.titleFontSize, scale),
+    titleLineHeight: scaleValue(preset.titleLineHeight, scale),
+    titleGap: scaleValue(preset.titleGap, scale),
+    subtitleFontSize: scaleValue(preset.subtitleFontSize, scale),
+    subtitleLineHeight: scaleValue(preset.subtitleLineHeight, scale),
+    subtitleGap: scaleValue(preset.subtitleGap, scale),
+    metadataFontSize: scaleValue(preset.metadataFontSize, scale),
+    metadataLineHeight: scaleValue(preset.metadataLineHeight, scale),
+    dividerGapTop: scaleValue(preset.dividerGapTop, scale),
+    dividerGapBottom: scaleValue(preset.dividerGapBottom, scale),
+    dividerThickness: Math.max(1, scaleValue(preset.dividerThickness, scale)),
+    bodyGap: scaleValue(preset.bodyGap, scale),
+    lyricOnlyFontSize: scaleValue(preset.lyricOnlyFontSize, scale),
+    lyricOnlyLineHeight: scaleValue(preset.lyricOnlyLineHeight, scale),
+    notationScale: preset.notationScale * surfaceScale,
     renderMetrics,
-    footerFontSize: scaleValue(18, scale),
-    footerHeight: scaleValue(24, scale)
+    footerFontSize: scaleValue(preset.footerFontSize, scale),
+    footerHeight: scaleValue(preset.footerHeight, scale)
   };
 }
 
