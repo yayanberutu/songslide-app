@@ -88,6 +88,33 @@ export type RenderTheme = {
   lyricText: string;
 };
 
+export type RenderMetrics = {
+  scale: number;
+  noteWidth: number;
+  restWidth: number;
+  extensionWidth: number;
+  barWidth: number;
+  tokenGap: number;
+  notationHeight: number;
+  lyricHeight: number;
+  baselineY: number;
+  topDotY: number;
+  topDotYBeamed: number;
+  bottomDotY: number;
+  extensionDotY: number;
+  beamLevelOneY: number;
+  beamLevelTwoY: number;
+  slurBaseY: number;
+  lyricBaselineY: number;
+  noteFontSize: number;
+  restFontSize: number;
+  lyricFontSize: number;
+  lyricHorizontalPadding: number;
+  lyricMinGap: number;
+  dotRadius: number;
+  plainNotationFontSize: number;
+};
+
 type RenderedToken = {
   width: number;
   markup: string[];
@@ -99,6 +126,7 @@ export type RenderLineOptions = {
   notation: string;
   lyric?: string | null;
   theme: Pick<RenderTheme, "notationText" | "lyricText">;
+  metrics?: RenderMetrics;
 };
 
 export type RenderedLine = {
@@ -125,27 +153,7 @@ const closingTokenNames: Record<")" | "]", string> = {
   "]": "bracket"
 };
 
-const NOTE_WIDTH = 28;
-const REST_WIDTH = 22;
-const EXTENSION_WIDTH = 18;
-const BAR_WIDTH = 12;
-const TOKEN_GAP = 8;
-const NOTATION_HEIGHT = 54;
-const LYRIC_HEIGHT = 28;
-const TOTAL_HEIGHT_WITH_LYRIC = NOTATION_HEIGHT + LYRIC_HEIGHT;
-const TOTAL_HEIGHT_NOTATION_ONLY = NOTATION_HEIGHT;
-const BASELINE_Y = 29;
-const TOP_DOT_Y = 13;
-const TOP_DOT_Y_BEAMED = 16;
-const BOTTOM_DOT_Y = 40;
-const EXTENSION_DOT_Y = 36;
-const BEAM_LEVEL_ONE_Y = 8;
-const BEAM_LEVEL_TWO_Y = 13;
-const SLUR_BASE_Y = 46;
-const LYRIC_BASELINE_Y = 73;
-const LYRIC_FONT_SIZE = 22;
-const LYRIC_HORIZONTAL_PADDING = 8;
-const LYRIC_MIN_GAP = 6;
+export const DEFAULT_RENDER_METRICS = createRenderMetrics();
 
 export function parseNotationLine(input: string | null | undefined): NotationParseResult {
   const source = input?.trim() ?? "";
@@ -198,10 +206,40 @@ export function parseLyricSyllables(input: string | null | undefined): string[] 
     .filter((part) => part.length > 0);
 }
 
+export function createRenderMetrics(scale = 1): RenderMetrics {
+  return {
+    scale,
+    noteWidth: 28 * scale,
+    restWidth: 22 * scale,
+    extensionWidth: 18 * scale,
+    barWidth: 12 * scale,
+    tokenGap: 8 * scale,
+    notationHeight: 54 * scale,
+    lyricHeight: 28 * scale,
+    baselineY: 29 * scale,
+    topDotY: 13 * scale,
+    topDotYBeamed: 16 * scale,
+    bottomDotY: 40 * scale,
+    extensionDotY: 36 * scale,
+    beamLevelOneY: 8 * scale,
+    beamLevelTwoY: 13 * scale,
+    slurBaseY: 46 * scale,
+    lyricBaselineY: 73 * scale,
+    noteFontSize: 24 * scale,
+    restFontSize: 22 * scale,
+    lyricFontSize: 22 * scale,
+    lyricHorizontalPadding: 8 * scale,
+    lyricMinGap: 6 * scale,
+    dotRadius: Math.max(1.2, 1.4 * scale),
+    plainNotationFontSize: 22 * scale
+  };
+}
+
 export function renderNotationLineSvg(options: RenderLineOptions): RenderedLine {
+  const metrics = options.metrics ?? DEFAULT_RENDER_METRICS;
   const parsed = parseNotationLine(options.notation);
   if (parsed.issues.length > 0) {
-    const fallback = renderPlainNotationSvg(options.notation, options.lyric, options.theme);
+    const fallback = renderPlainNotationSvg(options.notation, options.lyric, options.theme, metrics);
     return {
       svg: fallback.svg,
       issues: parsed.issues,
@@ -212,15 +250,16 @@ export function renderNotationLineSvg(options: RenderLineOptions): RenderedLine 
     };
   }
 
-  const topLevel = renderTokenSequence(parsed.tokens, 0, 0, options.theme);
+  const topLevel = renderTokenSequence(parsed.tokens, 0, 0, options.theme, metrics);
   const lyricSyllables = parseLyricSyllables(options.lyric);
   const hasLyric = lyricSyllables.length > 0;
-  const height = hasLyric ? TOTAL_HEIGHT_WITH_LYRIC : TOTAL_HEIGHT_NOTATION_ONLY;
+  const height = hasLyric ? metrics.notationHeight + metrics.lyricHeight : metrics.notationHeight;
   const lyricPlacements = hasLyric
     ? resolveLyricPlacements(
         topLevel.slotAnchors,
         lyricSyllables.slice(0, topLevel.slotAnchors.length),
-        Math.max(topLevel.width, 1)
+        Math.max(topLevel.width, 1),
+        metrics
       )
     : [];
   const width = Math.max(
@@ -230,7 +269,7 @@ export function renderNotationLineSvg(options: RenderLineOptions): RenderedLine 
   );
 
   const lyricMarkup = lyricPlacements
-    .map((placement) => renderLyricText(placement.centerX, placement.text, options.theme.lyricText))
+    .map((placement) => renderLyricText(placement.centerX, placement.text, options.theme.lyricText, metrics))
     .join("");
 
   return {
@@ -502,7 +541,8 @@ function renderTokenSequence(
   tokens: readonly NotationToken[],
   startX: number,
   beamDepth: number,
-  theme: RenderTheme
+  theme: RenderTheme,
+  metrics: RenderMetrics
 ): RenderedToken {
   let cursorX = startX;
   const markup: string[] = [];
@@ -510,7 +550,7 @@ function renderTokenSequence(
   let firstNoteAnchor: number | null = null;
 
   tokens.forEach((token, index) => {
-    const rendered = renderToken(token, cursorX, beamDepth, theme);
+    const rendered = renderToken(token, cursorX, beamDepth, theme, metrics);
     markup.push(...rendered.markup);
     slotAnchors.push(...rendered.slotAnchors);
     if (firstNoteAnchor === null && rendered.firstNoteAnchor !== null) {
@@ -518,7 +558,7 @@ function renderTokenSequence(
     }
     cursorX += rendered.width;
     if (index < tokens.length - 1) {
-      cursorX += TOKEN_GAP;
+      cursorX += metrics.tokenGap;
     }
   });
 
@@ -530,20 +570,26 @@ function renderTokenSequence(
   };
 }
 
-function renderToken(token: NotationToken, x: number, beamDepth: number, theme: RenderTheme): RenderedToken {
+function renderToken(
+  token: NotationToken,
+  x: number,
+  beamDepth: number,
+  theme: RenderTheme,
+  metrics: RenderMetrics
+): RenderedToken {
   switch (token.type) {
     case "NOTE":
-      return renderNoteToken(token, x, beamDepth, theme);
+      return renderNoteToken(token, x, beamDepth, theme, metrics);
     case "REST":
-      return renderRestToken(x, theme);
+      return renderRestToken(x, theme, metrics);
     case "BAR":
-      return renderBarToken(x, theme);
+      return renderBarToken(x, theme, metrics);
     case "EXTENSION":
-      return renderExtensionToken(x, theme);
+      return renderExtensionToken(x, theme, metrics);
     case "SLUR":
-      return renderSlurToken(token, x, beamDepth, theme);
+      return renderSlurToken(token, x, beamDepth, theme, metrics);
     case "BEAM":
-      return renderBeamToken(token, x, beamDepth, theme);
+      return renderBeamToken(token, x, beamDepth, theme, metrics);
     default:
       return {
         width: 0,
@@ -554,86 +600,98 @@ function renderToken(token: NotationToken, x: number, beamDepth: number, theme: 
   }
 }
 
-function renderNoteToken(token: NotationNoteToken, x: number, beamDepth: number, theme: RenderTheme): RenderedToken {
-  const centerX = x + NOTE_WIDTH / 2;
-  const topDotY = beamDepth > 0 ? TOP_DOT_Y_BEAMED : TOP_DOT_Y;
+function renderNoteToken(
+  token: NotationNoteToken,
+  x: number,
+  beamDepth: number,
+  theme: RenderTheme,
+  metrics: RenderMetrics
+): RenderedToken {
+  const centerX = x + metrics.noteWidth / 2;
+  const topDotY = beamDepth > 0 ? metrics.topDotYBeamed : metrics.topDotY;
   const markup: string[] = [
-    `<text x="${centerX}" y="${BASELINE_Y}" text-anchor="middle" dominant-baseline="middle" font-family="Aptos, Arial, sans-serif" font-size="24" font-weight="700" fill="#${theme.notationText}">${escapeXml(token.degree)}</text>`
+    `<text x="${centerX}" y="${metrics.baselineY}" text-anchor="middle" dominant-baseline="middle" font-family="Aptos, Arial, sans-serif" font-size="${metrics.noteFontSize}" font-weight="700" fill="#${theme.notationText}">${escapeXml(token.degree)}</text>`
   ];
 
   if (token.octave > 0) {
-    const startX = centerX - ((token.octave - 1) * 4) / 2;
+    const startX = centerX - ((token.octave - 1) * (4 * metrics.scale)) / 2;
     for (let index = 0; index < token.octave; index += 1) {
-      markup.push(`<circle cx="${startX + index * 4}" cy="${topDotY}" r="1.4" fill="#${theme.notationText}" />`);
+      markup.push(`<circle cx="${startX + index * (4 * metrics.scale)}" cy="${topDotY}" r="${metrics.dotRadius}" fill="#${theme.notationText}" />`);
     }
   }
 
   if (token.octave < 0) {
     const count = Math.abs(token.octave);
-    const startX = centerX - ((count - 1) * 4) / 2;
+    const startX = centerX - ((count - 1) * (4 * metrics.scale)) / 2;
     for (let index = 0; index < count; index += 1) {
-      markup.push(`<circle cx="${startX + index * 4}" cy="${BOTTOM_DOT_Y}" r="1.4" fill="#${theme.notationText}" />`);
+      markup.push(`<circle cx="${startX + index * (4 * metrics.scale)}" cy="${metrics.bottomDotY}" r="${metrics.dotRadius}" fill="#${theme.notationText}" />`);
     }
   }
 
   for (let index = 0; index < token.shortDurationLevel; index += 1) {
-    const x1 = x + NOTE_WIDTH - 7;
-    const y1 = 15 + index * 4;
-    markup.push(`<line x1="${x1}" y1="${y1}" x2="${x1 + 5}" y2="${y1 - 3}" stroke="#${theme.notationText}" stroke-width="1.3" stroke-linecap="round" />`);
+    const x1 = x + metrics.noteWidth - 7 * metrics.scale;
+    const y1 = 15 * metrics.scale + index * (4 * metrics.scale);
+    markup.push(`<line x1="${x1}" y1="${y1}" x2="${x1 + 5 * metrics.scale}" y2="${y1 - 3 * metrics.scale}" stroke="#${theme.notationText}" stroke-width="${1.3 * metrics.scale}" stroke-linecap="round" />`);
   }
 
   for (let index = 0; index < token.holdCount; index += 1) {
-    const x1 = x + NOTE_WIDTH - 2 + index * 5;
-    markup.push(`<line x1="${x1}" y1="${BASELINE_Y}" x2="${x1 + 4}" y2="${BASELINE_Y}" stroke="#${theme.notationText}" stroke-width="1.3" stroke-linecap="round" />`);
+    const x1 = x + metrics.noteWidth - 2 * metrics.scale + index * (5 * metrics.scale);
+    markup.push(`<line x1="${x1}" y1="${metrics.baselineY}" x2="${x1 + 4 * metrics.scale}" y2="${metrics.baselineY}" stroke="#${theme.notationText}" stroke-width="${1.3 * metrics.scale}" stroke-linecap="round" />`);
   }
 
   return {
-    width: NOTE_WIDTH,
+    width: metrics.noteWidth,
     markup,
     slotAnchors: [centerX],
     firstNoteAnchor: centerX
   };
 }
 
-function renderRestToken(x: number, theme: RenderTheme): RenderedToken {
-  const centerX = x + REST_WIDTH / 2;
+function renderRestToken(x: number, theme: RenderTheme, metrics: RenderMetrics): RenderedToken {
+  const centerX = x + metrics.restWidth / 2;
   return {
-    width: REST_WIDTH,
+    width: metrics.restWidth,
     markup: [
-      `<text x="${centerX}" y="${BASELINE_Y}" text-anchor="middle" dominant-baseline="middle" font-family="Aptos, Arial, sans-serif" font-size="22" font-weight="700" fill="#${theme.notationText}" opacity="0.7">0</text>`
+      `<text x="${centerX}" y="${metrics.baselineY}" text-anchor="middle" dominant-baseline="middle" font-family="Aptos, Arial, sans-serif" font-size="${metrics.restFontSize}" font-weight="700" fill="#${theme.notationText}" opacity="0.7">0</text>`
     ],
     slotAnchors: [],
     firstNoteAnchor: null
   };
 }
 
-function renderBarToken(x: number, theme: RenderTheme): RenderedToken {
-  const centerX = x + BAR_WIDTH / 2;
+function renderBarToken(x: number, theme: RenderTheme, metrics: RenderMetrics): RenderedToken {
+  const centerX = x + metrics.barWidth / 2;
   return {
-    width: BAR_WIDTH,
+    width: metrics.barWidth,
     markup: [
-      `<line x1="${centerX}" y1="18" x2="${centerX}" y2="40" stroke="#${theme.notationText}" stroke-width="1.5" stroke-linecap="round" opacity="0.8" />`
+      `<line x1="${centerX}" y1="${18 * metrics.scale}" x2="${centerX}" y2="${40 * metrics.scale}" stroke="#${theme.notationText}" stroke-width="${1.5 * metrics.scale}" stroke-linecap="round" opacity="0.8" />`
     ],
     slotAnchors: [],
     firstNoteAnchor: null
   };
 }
 
-function renderExtensionToken(x: number, theme: RenderTheme): RenderedToken {
-  const centerX = x + EXTENSION_WIDTH / 2;
+function renderExtensionToken(x: number, theme: RenderTheme, metrics: RenderMetrics): RenderedToken {
+  const centerX = x + metrics.extensionWidth / 2;
   return {
-    width: EXTENSION_WIDTH,
+    width: metrics.extensionWidth,
     markup: [
-      `<circle cx="${centerX}" cy="${EXTENSION_DOT_Y}" r="2" fill="#${theme.notationText}" />`
+      `<circle cx="${centerX}" cy="${metrics.extensionDotY}" r="${Math.max(1.8, 2 * metrics.scale)}" fill="#${theme.notationText}" />`
     ],
     slotAnchors: [],
     firstNoteAnchor: null
   };
 }
 
-function renderSlurToken(token: NotationSlurToken, x: number, beamDepth: number, theme: RenderTheme): RenderedToken {
-  const children = renderTokenSequence(token.children, x, beamDepth, theme);
-  const width = Math.max(children.width, NOTE_WIDTH);
+function renderSlurToken(
+  token: NotationSlurToken,
+  x: number,
+  beamDepth: number,
+  theme: RenderTheme,
+  metrics: RenderMetrics
+): RenderedToken {
+  const children = renderTokenSequence(token.children, x, beamDepth, theme, metrics);
+  const width = Math.max(children.width, metrics.noteWidth);
   const startX = x + 1;
   const endX = x + width - 1;
   const midX = x + width / 2;
@@ -643,49 +701,56 @@ function renderSlurToken(token: NotationSlurToken, x: number, beamDepth: number,
     width,
     markup: [
       ...children.markup,
-      `<path d="M ${startX} ${SLUR_BASE_Y - 2} Q ${midX} ${SLUR_BASE_Y + 4} ${endX} ${SLUR_BASE_Y - 2}" fill="none" stroke="#${theme.notationText}" stroke-width="1.3" stroke-linecap="round" opacity="0.85" />`
+      `<path d="M ${startX} ${metrics.slurBaseY - 2 * metrics.scale} Q ${midX} ${metrics.slurBaseY + 4 * metrics.scale} ${endX} ${metrics.slurBaseY - 2 * metrics.scale}" fill="none" stroke="#${theme.notationText}" stroke-width="${1.3 * metrics.scale}" stroke-linecap="round" opacity="0.85" />`
     ],
     slotAnchors: anchor !== null ? [anchor] : [],
     firstNoteAnchor: anchor
   };
 }
 
-function renderBeamToken(token: NotationBeamToken, x: number, beamDepth: number, theme: RenderTheme): RenderedToken {
+function renderBeamToken(
+  token: NotationBeamToken,
+  x: number,
+  beamDepth: number,
+  theme: RenderTheme,
+  metrics: RenderMetrics
+): RenderedToken {
   const nextBeamDepth = Math.min(beamDepth + 1, 2);
-  const children = renderTokenSequence(token.children, x, nextBeamDepth, theme);
-  const width = Math.max(children.width, NOTE_WIDTH);
-  const beamY = nextBeamDepth === 1 ? BEAM_LEVEL_ONE_Y : BEAM_LEVEL_TWO_Y;
+  const children = renderTokenSequence(token.children, x, nextBeamDepth, theme, metrics);
+  const width = Math.max(children.width, metrics.noteWidth);
+  const beamY = nextBeamDepth === 1 ? metrics.beamLevelOneY : metrics.beamLevelTwoY;
 
   return {
     width,
     markup: [
       ...children.markup,
-      `<line x1="${x + 2}" y1="${beamY}" x2="${x + width - 2}" y2="${beamY}" stroke="#${theme.notationText}" stroke-width="2.2" stroke-linecap="round" />`
+      `<line x1="${x + 2 * metrics.scale}" y1="${beamY}" x2="${x + width - 2 * metrics.scale}" y2="${beamY}" stroke="#${theme.notationText}" stroke-width="${2.2 * metrics.scale}" stroke-linecap="round" />`
     ],
     slotAnchors: children.slotAnchors,
     firstNoteAnchor: children.firstNoteAnchor
   };
 }
 
-function renderLyricText(anchorX: number, text: string, color: string): string {
-  return `<text x="${anchorX}" y="${LYRIC_BASELINE_Y}" text-anchor="middle" dominant-baseline="middle" font-family="Aptos, Arial, sans-serif" font-size="${LYRIC_FONT_SIZE}" font-weight="400" fill="#${color}">${escapeXml(text)}</text>`;
+function renderLyricText(anchorX: number, text: string, color: string, metrics: RenderMetrics): string {
+  return `<text x="${anchorX}" y="${metrics.lyricBaselineY}" text-anchor="middle" dominant-baseline="middle" font-family="Aptos, Arial, sans-serif" font-size="${metrics.lyricFontSize}" font-weight="400" fill="#${color}">${escapeXml(text)}</text>`;
 }
 
 function renderPlainNotationSvg(
   notation: string,
   lyric: string | null | undefined,
-  theme: RenderTheme
+  theme: RenderTheme,
+  metrics: RenderMetrics
 ): { svg: string; width: number; height: number } {
   const hasLyric = Boolean(lyric && lyric.trim().length > 0);
-  const height = hasLyric ? TOTAL_HEIGHT_WITH_LYRIC : TOTAL_HEIGHT_NOTATION_ONLY;
-  const textY = hasLyric ? 24 : 28;
+  const height = hasLyric ? metrics.notationHeight + metrics.lyricHeight : metrics.notationHeight;
+  const textY = hasLyric ? 24 * metrics.scale : 28 * metrics.scale;
   const width = 1200;
 
   return {
     svg: [
       `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMinYMid meet" role="img">`,
-      `<text x="0" y="${textY}" font-family="Courier New, ui-monospace, monospace" font-size="22" font-weight="700" fill="#${theme.notationText}">${escapeXml(notation)}</text>`,
-      hasLyric ? `<text x="0" y="${LYRIC_BASELINE_Y}" font-family="Aptos, Arial, sans-serif" font-size="22" fill="#${theme.lyricText}">${escapeXml(lyric ?? "")}</text>` : "",
+      `<text x="0" y="${textY}" font-family="Courier New, ui-monospace, monospace" font-size="${metrics.plainNotationFontSize}" font-weight="700" fill="#${theme.notationText}">${escapeXml(notation)}</text>`,
+      hasLyric ? `<text x="0" y="${metrics.lyricBaselineY}" font-family="Aptos, Arial, sans-serif" font-size="${metrics.lyricFontSize}" fill="#${theme.lyricText}">${escapeXml(lyric ?? "")}</text>` : "",
       "</svg>"
     ].join(""),
     width,
@@ -725,17 +790,18 @@ function findFirstRenderableNote(tokens: readonly NotationToken[]): NotationNote
 function resolveLyricPlacements(
   anchors: readonly number[],
   syllables: readonly string[],
-  notationWidth: number
+  notationWidth: number,
+  metrics: RenderMetrics
 ): LyricPlacement[] {
   const placements: LyricPlacement[] = [];
   let previousRight = 0;
 
   syllables.forEach((text, index) => {
-    const width = estimateLyricTextWidth(text);
+    const width = estimateLyricTextWidthWithMetrics(text, metrics);
     const anchorX = anchors[index] ?? previousRight;
     const minCenter = width / 2;
     const collisionCenter = previousRight > 0
-      ? previousRight + LYRIC_MIN_GAP + width / 2
+      ? previousRight + metrics.lyricMinGap + width / 2
       : minCenter;
     const centerX = Math.max(anchorX, minCenter, collisionCenter);
     const left = centerX - width / 2;
@@ -771,9 +837,9 @@ function resolveLyricPlacements(
   return placements;
 }
 
-function estimateLyricTextWidth(text: string) {
-  const estimated = [...text].reduce((total, character) => total + characterWidthFactor(character), 0) * LYRIC_FONT_SIZE;
-  return Math.max(18, Math.ceil(estimated + LYRIC_HORIZONTAL_PADDING));
+function estimateLyricTextWidthWithMetrics(text: string, metrics: RenderMetrics) {
+  const estimated = [...text].reduce((total, character) => total + characterWidthFactor(character), 0) * metrics.lyricFontSize;
+  return Math.max(18 * metrics.scale, Math.ceil(estimated + metrics.lyricHorizontalPadding));
 }
 
 function characterWidthFactor(character: string) {

@@ -29,7 +29,8 @@ public record ExportServicePayload(
     public record Layout(
             String theme,
             boolean showNotation,
-            String slideSize
+            String slideSize,
+            String textSizePreset
     ) {
     }
 

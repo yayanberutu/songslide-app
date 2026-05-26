@@ -22,6 +22,7 @@ public class SongExportPayloadBuilder {
     private static final Pattern VERSE_NUMBER_PATTERN = Pattern.compile("[1-9][0-9]*");
     private static final Set<String> THEMES = Set.of("LIGHT", "DARK");
     private static final Set<String> SLIDE_SIZES = Set.of("LAYOUT_WIDE", "LAYOUT_4X3", "16:9", "4:3");
+    private static final Set<String> TEXT_SIZE_PRESETS = Set.of("SMALL", "MEDIUM", "LARGE");
 
     private final ArrangementContentValidator contentValidator;
     private final ObjectMapper objectMapper;
@@ -298,7 +299,14 @@ public class SongExportPayloadBuilder {
         }
 
         boolean showNotation = request == null || request.showNotation() == null || request.showNotation();
-        return new ExportServicePayload.Layout(theme, showNotation, slideSize);
+        String textSizePreset = request == null || !hasText(request.textSizePreset())
+                ? "MEDIUM"
+                : request.textSizePreset().trim().toUpperCase(Locale.ROOT);
+        if (!TEXT_SIZE_PRESETS.contains(textSizePreset)) {
+            throw new IllegalArgumentException("layout.textSizePreset is not supported");
+        }
+
+        return new ExportServicePayload.Layout(theme, showNotation, slideSize, textSizePreset);
     }
 
     private ExportServicePayload.Output output(SongExportFormat outputFormat, ExportLayoutRequest request) {
@@ -328,6 +336,7 @@ public class SongExportPayloadBuilder {
         layoutNode.put("theme", layout.theme());
         layoutNode.put("showNotation", layout.showNotation());
         layoutNode.put("slideSize", layout.slideSize());
+        layoutNode.put("textSizePreset", layout.textSizePreset());
 
         ObjectNode outputNode = options.putObject("output");
         outputNode.put("fileName", output.fileName());

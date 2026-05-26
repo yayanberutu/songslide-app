@@ -25,7 +25,8 @@ const validPayload = {
   layout: {
     theme: "LIGHT",
     showNotation: true,
-    slideSize: "LAYOUT_WIDE"
+    slideSize: "LAYOUT_WIDE",
+    textSizePreset: "MEDIUM"
   }
 };
 
@@ -104,6 +105,24 @@ describe("export service contract", () => {
     assert.equal(response.body.status, "FAILED");
     assert.equal(response.body.code, "VALIDATION_ERROR");
     assert.ok(response.body.issues.some((issue: { path: string }) => issue.path === "slides"));
+  });
+
+  it("accepts missing textSizePreset for backward compatibility", async () => {
+    const response = await request(app)
+      .post("/export/pptx")
+      .buffer(true)
+      .parse(binaryParser)
+      .send({
+        ...validPayload,
+        layout: {
+          theme: "LIGHT",
+          showNotation: true,
+          slideSize: "LAYOUT_WIDE"
+        }
+      });
+
+    assert.equal(response.status, 200);
+    assert.equal(response.body.subarray(0, 2).toString(), "PK");
   });
 
   it("generates only the submitted PPTX slides", async () => {

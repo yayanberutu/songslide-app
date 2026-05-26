@@ -1,6 +1,8 @@
 import {
+  createRenderMetrics,
   createNotationTheme,
   renderNotationLineSvg,
+  type RenderMetrics,
   type RenderTheme,
   type RenderedLine
 } from "./notation-renderer";
@@ -13,12 +15,19 @@ const BASE_SURFACE_WIDTH = 1920;
 const BASE_SURFACE_HEIGHT = 1080;
 const TEXT_WIDTH_FACTOR = 0.56;
 
+const PRESET_FACTORS = {
+  SMALL: 0.86,
+  MEDIUM: 1,
+  LARGE: 1.18
+} as const;
+
 export type ExportSurfaceSize = {
   width: number;
   height: number;
 };
 
 export type ExportLayoutTokens = {
+  textSizePreset: ExportPayload["layout"]["textSizePreset"];
   outerPaddingX: number;
   outerPaddingTop: number;
   outerPaddingBottom: number;
@@ -37,6 +46,7 @@ export type ExportLayoutTokens = {
   lyricOnlyFontSize: number;
   lyricOnlyLineHeight: number;
   notationScale: number;
+  renderMetrics: RenderMetrics;
   footerFontSize: number;
   footerHeight: number;
 };
@@ -91,7 +101,7 @@ export function buildExportRenderPlan(
   payload: ExportPayload,
   surface: ExportSurfaceSize
 ): ExportRenderPlan {
-  const tokens = createLayoutTokens(surface);
+  const tokens = createLayoutTokens(surface, payload.layout.textSizePreset);
   const notationTheme = createNotationTheme(payload.layout.theme);
   const contentX = tokens.outerPaddingX;
   const contentWidth = surface.width - tokens.outerPaddingX * 2;
@@ -131,11 +141,11 @@ export function buildExportRenderPlan(
       return;
     }
 
-    pagedLines.forEach((lines) => {
+    pagedLines.forEach((lines, pageIndex) => {
       pages.push({
         sourceSlideIndex: slideIndex,
         title: slide.title,
-        subtitle: slide.subtitle ?? "",
+        subtitle: pageSubtitle(slide.subtitle ?? "", pageIndex, pagedLines.length),
         metadata: slide.metadata ?? null,
         lines
       });
@@ -158,10 +168,17 @@ export function buildExportRenderPlan(
   };
 }
 
-export function createLayoutTokens(surface: ExportSurfaceSize): ExportLayoutTokens {
-  const scale = Math.min(surface.width / BASE_SURFACE_WIDTH, surface.height / BASE_SURFACE_HEIGHT);
+export function createLayoutTokens(
+  surface: ExportSurfaceSize,
+  textSizePreset: ExportPayload["layout"]["textSizePreset"] = "MEDIUM"
+): ExportLayoutTokens {
+  const surfaceScale = Math.min(surface.width / BASE_SURFACE_WIDTH, surface.height / BASE_SURFACE_HEIGHT);
+  const presetScale = PRESET_FACTORS[textSizePreset];
+  const scale = surfaceScale * presetScale;
+  const renderMetrics = createRenderMetrics(presetScale);
 
   return {
+    textSizePreset,
     outerPaddingX: scaleValue(96, scale),
     outerPaddingTop: scaleValue(68, scale),
     outerPaddingBottom: scaleValue(52, scale),
@@ -179,7 +196,8 @@ export function createLayoutTokens(surface: ExportSurfaceSize): ExportLayoutToke
     bodyGap: scaleValue(18, scale),
     lyricOnlyFontSize: scaleValue(38, scale),
     lyricOnlyLineHeight: scaleValue(48, scale),
-    notationScale: 1.24 * scale,
+    notationScale: 1.24 * surfaceScale,
+    renderMetrics,
     footerFontSize: scaleValue(18, scale),
     footerHeight: scaleValue(24, scale)
   };
@@ -276,7 +294,8 @@ function planVisibleLine(
     const rendered = renderNotationLineSvg({
       notation: line.notation,
       lyric: line.lyric,
-      theme: notationTheme
+      theme: notationTheme,
+      metrics: tokens.renderMetrics
     });
     return planNotationLine(rendered, Boolean(line.lyric), contentWidth, tokens.notationScale);
   }
@@ -389,6 +408,14 @@ function estimateTextLineCount(
   }
 
   return Math.min(lines, maxLines);
+}
+
+function pageSubtitle(baseSubtitle: string, pageIndex: number, totalPages: number) {
+  if (totalPages <= 1) {
+    return baseSubtitle;
+  }
+
+  return `${baseSubtitle} - slide ${pageIndex + 1}/${totalPages}`;
 }
 
 function normalizeOptionalText(value: string | null | undefined): string | null {
