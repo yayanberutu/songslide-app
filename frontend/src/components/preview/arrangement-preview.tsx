@@ -15,6 +15,11 @@ import {
   type VerseSection
 } from "@/lib/arrangement-api";
 import {
+  collectAvailableVerses,
+  sectionHasVerse,
+  sectionsOfType
+} from "@/lib/arrangement-helpers";
+import {
   createSongExport,
   exportDownloadHref,
   type ExportOutputFormat,
@@ -547,40 +552,6 @@ function addPreviewLine(lines: PreviewLine[], notation: string | null | undefine
   return lines;
 }
 
-function collectAvailableVerses(content: ArrangementContentJson) {
-  const verses = new Set<string>();
-  sectionsOfType<VerseSection>(content, "VERSE").forEach((section) => {
-    section.lines.forEach((line) => {
-      Object.keys(line.lyricsByVerse ?? {}).forEach((verseNumber) => {
-        if (isPositiveVerseNumber(verseNumber)) {
-          verses.add(verseNumber);
-        }
-      });
-    });
-  });
-  sectionsOfType<TextOnlyVersesSection>(content, "TEXT_ONLY_VERSES").forEach((section) => {
-    Object.keys(section.verses ?? {}).forEach((verseNumber) => {
-      if (isPositiveVerseNumber(verseNumber)) {
-        verses.add(verseNumber);
-      }
-    });
-  });
-  return [...verses].sort(compareVerseNumbers);
-}
-
-function sectionHasVerse(section: VerseSection, verseNumber: string) {
-  return section.lines.some((line) => Boolean(line.lyricsByVerse && Object.hasOwn(line.lyricsByVerse, verseNumber)));
-}
-
-function sectionsOfType<T>(content: ArrangementContentJson, type: T extends VerseSection
-  ? "VERSE"
-  : T extends RefrainSection
-    ? "REFRAIN"
-    : "TEXT_ONLY_VERSES"
-) {
-  return content.sections.filter((section) => section.type === type) as T[];
-}
-
 function sortedLines<T extends VerseLine | RefrainLine>(lines: T[] = []) {
   return [...lines].sort((left, right) => left.lineOrder - right.lineOrder);
 }
@@ -596,14 +567,6 @@ function slideMetadata(song: Song) {
     song.tempo ? `${song.tempo} BPM` : null
   ].filter(Boolean);
   return parts.length > 0 ? parts.join(" | ") : null;
-}
-
-function compareVerseNumbers(left: string, right: string) {
-  return Number(left) - Number(right);
-}
-
-function isPositiveVerseNumber(value: string) {
-  return /^[1-9][0-9]*$/.test(value);
 }
 
 function hasText(value: string | null | undefined) {
