@@ -33,27 +33,49 @@ public class SongExportController {
         return ApiResponse.success(songExportService.createExport(songId, request));
     }
 
+    @PostMapping("/song-exports/multiple")
+    public ApiResponse<SongExportResponse> createMultiple(
+            @Valid @RequestBody MultipleSongExportRequest request
+    ) {
+        return ApiResponse.success(songExportService.createMultipleExport(request));
+    }
+
     @GetMapping("/exports/{exportId}/download")
     public ResponseEntity<byte[]> download(@PathVariable UUID exportId) {
         SongExport songExport = songExportService.getCompletedExportWithMetadata(exportId);
         byte[] file = songExportService.readExportFile(songExport);
 
-        String bookCode = songExport.getSong().getSongBook().getCode();
-        String songNumber = songExport.getSong().getSongNumber();
-        List<String> versesList = parseAndSortVerses(songExport.getSelectedVersesJson());
-        String verses = versesList.isEmpty() ? "" : " - " + String.join(",", versesList);
+        String fileName;
+        JsonNode options = songExport.getOptionsJson();
+        if (options != null && options.has("output") && options.get("output").has("requestedFileName")) {
+            String requestedFileName = options.get("output").get("requestedFileName").asText();
+            String extension = songExport.getFormat().fileExtension();
+            if (requestedFileName.toLowerCase().endsWith("." + extension.toLowerCase())) {
+                requestedFileName = requestedFileName.substring(0, requestedFileName.length() - extension.length() - 1);
+            }
+            String sanitizedBaseName = sanitizeFilename(requestedFileName);
+            if (sanitizedBaseName.isBlank()) {
+                sanitizedBaseName = "songslide-export";
+            }
+            fileName = sanitizedBaseName + "." + extension;
+        } else {
+            String bookCode = songExport.getSong().getSongBook().getCode();
+            String songNumber = songExport.getSong().getSongNumber();
+            List<String> versesList = parseAndSortVerses(songExport.getSelectedVersesJson());
+            String verses = versesList.isEmpty() ? "" : " - " + String.join(",", versesList);
 
-        String rawBaseName = "";
-        if (bookCode != null && !bookCode.isBlank() && songNumber != null && !songNumber.isBlank()) {
-            rawBaseName = bookCode + " " + songNumber + verses;
+            String rawBaseName = "";
+            if (bookCode != null && !bookCode.isBlank() && songNumber != null && !songNumber.isBlank()) {
+                rawBaseName = bookCode + " " + songNumber + verses;
+            }
+
+            String sanitizedBaseName = sanitizeFilename(rawBaseName);
+            if (sanitizedBaseName.isBlank()) {
+                sanitizedBaseName = "songslide-export";
+            }
+
+            fileName = sanitizedBaseName + "." + songExport.getFormat().fileExtension();
         }
-
-        String sanitizedBaseName = sanitizeFilename(rawBaseName);
-        if (sanitizedBaseName.isBlank()) {
-            sanitizedBaseName = "songslide-export";
-        }
-
-        String fileName = sanitizedBaseName + "." + songExport.getFormat().fileExtension();
 
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(songExport.getFormat().contentType()))

@@ -1,6 +1,7 @@
 package com.songslide.song;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -11,6 +12,8 @@ public interface SongRepository extends JpaRepository<Song, UUID> {
     boolean existsBySongBook_IdAndSongNumber(UUID songBookId, String songNumber);
 
     boolean existsBySongBook_IdAndSongNumberAndIdNot(UUID songBookId, String songNumber, UUID id);
+
+    Optional<Song> findBySongBook_CodeAndSongNumber(String bookCode, String songNumber);
 
     @Query("""
             SELECT song

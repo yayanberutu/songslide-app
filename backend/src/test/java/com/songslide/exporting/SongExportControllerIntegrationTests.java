@@ -177,6 +177,211 @@ class SongExportControllerIntegrationTests {
     }
 
     @Test
+    void createMultipleSongsExportPptx() throws Exception {
+        exportServiceResponse = "pptx-output-multiple".getBytes(StandardCharsets.UTF_8);
+
+        String requestBody = """
+                {
+                  "fileName": "ibadah-minggu",
+                  "outputFormat": "PPTX",
+                  "layout": {
+                    "theme": "LIGHT",
+                    "showNotation": true,
+                    "slideSize": "LAYOUT_WIDE",
+                    "textSizePreset": "MEDIUM"
+                  },
+                  "items": [
+                    {
+                      "bookCode": "KJ",
+                      "songNumber": "37",
+                      "selectedVerses": ["2", "1"],
+                      "refrainMode": "NONE",
+                      "order": 1
+                    }
+                  ]
+                }
+                """;
+
+        MvcResult result = mockMvc.perform(post("/api/song-exports/multiple")
+                        .contextPath("/api")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("SUCCESS"))
+                .andExpect(jsonPath("$.data.outputFormat").value("PPTX"))
+                .andExpect(jsonPath("$.data.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.data.storageKey").value(containsString("/songslide-export.pptx")))
+                .andReturn();
+
+        assertThat(EXPORT_REQUESTS).hasSize(1);
+        JsonNode payload = objectMapper.readTree(EXPORT_REQUESTS.get(0).body());
+        assertThat(payload.path("slides")).hasSize(2);
+        assertThat(payload.path("slides").get(0).path("subtitle").asText()).isEqualTo("Ayat 2");
+        assertThat(payload.path("slides").get(1).path("subtitle").asText()).isEqualTo("Ayat 1");
+        assertThat(payload.path("output").path("fileName").asText()).isEqualTo("ibadah-minggu.pptx");
+
+        String exportId = JsonPath.read(result.getResponse().getContentAsString(), "$.data.id");
+        mockMvc.perform(get("/api/exports/{exportId}/download", exportId).contextPath("/api"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition", containsString("filename=\"ibadah-minggu.pptx\"")))
+                .andExpect(content().bytes("pptx-output-multiple".getBytes(StandardCharsets.UTF_8)));
+    }
+
+    @Test
+    void createMultipleSongsExportStripsDuplicateExtension() throws Exception {
+        exportServiceResponse = "zip-output-multiple".getBytes(StandardCharsets.UTF_8);
+
+        String requestBody = """
+                {
+                  "fileName": "ibadah-minggu.zip",
+                  "outputFormat": "PNG",
+                  "layout": {
+                    "theme": "LIGHT",
+                    "showNotation": true,
+                    "slideSize": "LAYOUT_WIDE",
+                    "textSizePreset": "MEDIUM"
+                  },
+                  "items": [
+                    {
+                      "bookCode": "KJ",
+                      "songNumber": "37",
+                      "selectedVerses": ["1"],
+                      "refrainMode": "NONE",
+                      "order": 1
+                    }
+                  ]
+                }
+                """;
+
+        MvcResult result = mockMvc.perform(post("/api/song-exports/multiple")
+                        .contextPath("/api")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        String exportId = JsonPath.read(result.getResponse().getContentAsString(), "$.data.id");
+        mockMvc.perform(get("/api/exports/{exportId}/download", exportId).contextPath("/api"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition", containsString("filename=\"ibadah-minggu.zip\"")))
+                .andExpect(content().bytes("zip-output-multiple".getBytes(StandardCharsets.UTF_8)));
+    }
+
+    @Test
+    void createMultipleSongsExportStripsDuplicatePptxExtension() throws Exception {
+        exportServiceResponse = "pptx-output-multiple".getBytes(StandardCharsets.UTF_8);
+
+        String requestBody = """
+                {
+                  "fileName": "ibadah-minggu.pptx",
+                  "outputFormat": "PPTX",
+                  "layout": {
+                    "theme": "LIGHT",
+                    "showNotation": true,
+                    "slideSize": "LAYOUT_WIDE",
+                    "textSizePreset": "MEDIUM"
+                  },
+                  "items": [
+                    {
+                      "bookCode": "KJ",
+                      "songNumber": "37",
+                      "selectedVerses": ["1"],
+                      "refrainMode": "NONE",
+                      "order": 1
+                    }
+                  ]
+                }
+                """;
+
+        MvcResult result = mockMvc.perform(post("/api/song-exports/multiple")
+                        .contextPath("/api")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        String exportId = JsonPath.read(result.getResponse().getContentAsString(), "$.data.id");
+        mockMvc.perform(get("/api/exports/{exportId}/download", exportId).contextPath("/api"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition", containsString("filename=\"ibadah-minggu.pptx\"")));
+    }
+
+    @Test
+    void createMultipleSongsExportFailsOnEmptyFileName() throws Exception {
+        String requestBody = """
+                {
+                  "fileName": "",
+                  "outputFormat": "PPTX",
+                  "layout": { "theme": "LIGHT", "showNotation": true, "slideSize": "LAYOUT_WIDE", "textSizePreset": "MEDIUM" },
+                  "items": [
+                    { "bookCode": "KJ", "songNumber": "37", "selectedVerses": ["1"], "refrainMode": "NONE", "order": 1 }
+                  ]
+                }
+                """;
+        mockMvc.perform(post("/api/song-exports/multiple").contextPath("/api")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void createMultipleSongsExportFailsOnEmptyItems() throws Exception {
+        String requestBody = """
+                {
+                  "fileName": "test",
+                  "outputFormat": "PPTX",
+                  "layout": { "theme": "LIGHT", "showNotation": true, "slideSize": "LAYOUT_WIDE", "textSizePreset": "MEDIUM" },
+                  "items": []
+                }
+                """;
+        mockMvc.perform(post("/api/song-exports/multiple").contextPath("/api")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void createMultipleSongsExportFailsOnMissingSong() throws Exception {
+        String requestBody = """
+                {
+                  "fileName": "test",
+                  "outputFormat": "PPTX",
+                  "layout": { "theme": "LIGHT", "showNotation": true, "slideSize": "LAYOUT_WIDE", "textSizePreset": "MEDIUM" },
+                  "items": [
+                    { "bookCode": "KJ", "songNumber": "999", "selectedVerses": ["1"], "refrainMode": "NONE", "order": 1 }
+                  ]
+                }
+                """;
+        mockMvc.perform(post("/api/song-exports/multiple").contextPath("/api")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.errorMessage").value(containsString("Song not found")));
+    }
+
+    @Test
+    void createMultipleSongsExportFailsOnMissingArrangement() throws Exception {
+        arrangement.setIsDefault(false);
+        songArrangementRepository.save(arrangement);
+
+        String requestBody = """
+                {
+                  "fileName": "test",
+                  "outputFormat": "PPTX",
+                  "layout": { "theme": "LIGHT", "showNotation": true, "slideSize": "LAYOUT_WIDE", "textSizePreset": "MEDIUM" },
+                  "items": [
+                    { "bookCode": "KJ", "songNumber": "37", "selectedVerses": ["1"], "refrainMode": "NONE", "order": 1 }
+                  ]
+                }
+                """;
+        mockMvc.perform(post("/api/song-exports/multiple").contextPath("/api")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.errorMessage").value(containsString("Default arrangement not found")));
+    }
+
+    @Test
     void createExportDefaultsMissingTextSizePresetToMediumAndPersistsIt() throws Exception {
         mockMvc.perform(post("/api/songs/{songId}/exports", song.getId())
                         .contextPath("/api")

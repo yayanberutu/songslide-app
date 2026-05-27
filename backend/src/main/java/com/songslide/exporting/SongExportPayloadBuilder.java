@@ -56,7 +56,49 @@ public class SongExportPayloadBuilder {
         }
 
         ExportServicePayload payload = new ExportServicePayload(slides, layout, output);
-        return new ExportBuildResult(payload, normalizedVerses, optionsJson(layout, output));
+        return new ExportBuildResult(payload, normalizedVerses, optionsJson(layout, output, null));
+    }
+
+    private record ExportedItemMetadata(MultipleSongExportItem item, List<String> normalizedVerses) {}
+
+    ExportBuildResult buildMultiple(
+            List<MultipleSongExportItemContext> contexts,
+            String requestedFileName,
+            SongExportFormat outputFormat,
+            ExportLayoutRequest layoutRequest
+    ) {
+        ExportServicePayload.Layout layout = normalizeLayout(layoutRequest);
+        ExportServicePayload.Output output = output(outputFormat, layoutRequest);
+        if (requestedFileName != null && !requestedFileName.isBlank()) {
+            String extension = outputFormat.fileExtension();
+            String baseName = requestedFileName;
+            if (baseName.toLowerCase().endsWith("." + extension.toLowerCase())) {
+                baseName = baseName.substring(0, baseName.length() - extension.length() - 1);
+            }
+            output = new ExportServicePayload.Output(baseName + "." + extension, output.imageWidth(), output.imageHeight());
+        }
+
+        List<ExportServicePayload.Slide> allSlides = new ArrayList<>();
+        List<ExportedItemMetadata> metadataItems = new ArrayList<>();
+        for (MultipleSongExportItemContext ctx : contexts) {
+            JsonNode contentJson = ctx.arrangement().getContentJson();
+            contentValidator.validate(contentJson);
+            List<String> normalizedVerses = normalizeSelectedVerses(ctx.item().selectedVerses());
+            validateSelectedVerses(contentJson, normalizedVerses);
+            List<ExportServicePayload.Slide> slides = buildSlides(ctx.song(), contentJson, normalizedVerses, ctx.item().refrainMode());
+            if (slides.isEmpty()) {
+                throw new IllegalArgumentException("Export request for song " + ctx.song().getSongNumber() + " did not produce any slides");
+            }
+            allSlides.addAll(slides);
+            metadataItems.add(new ExportedItemMetadata(ctx.item(), normalizedVerses));
+        }
+
+        if (allSlides.isEmpty()) {
+            throw new IllegalArgumentException("Export request did not produce any slides");
+        }
+
+        ExportServicePayload payload = new ExportServicePayload(allSlides, layout, output);
+        return new ExportBuildResult(payload, List.of(), optionsJson(layout, output, requestedFileName, metadataItems));
     }
 
     private List<String> normalizeSelectedVerses(List<String> selectedVerses) {
@@ -330,7 +372,7 @@ public class SongExportPayloadBuilder {
         return value;
     }
 
-    private JsonNode optionsJson(ExportServicePayload.Layout layout, ExportServicePayload.Output output) {
+    private JsonNode optionsJson(ExportServicePayload.Layout layout, ExportServicePayload.Output output, String requestedFileName) {
         ObjectNode options = objectMapper.createObjectNode();
         ObjectNode layoutNode = options.putObject("layout");
         layoutNode.put("theme", layout.theme());
@@ -340,11 +382,34 @@ public class SongExportPayloadBuilder {
 
         ObjectNode outputNode = options.putObject("output");
         outputNode.put("fileName", output.fileName());
+        if (requestedFileName != null) {
+            outputNode.put("requestedFileName", requestedFileName);
+            options.put("exportType", "MULTIPLE");
+        } else {
+            options.put("exportType", "SINGLE");
+        }
         if (output.imageWidth() != null) {
             outputNode.put("imageWidth", output.imageWidth());
         }
         if (output.imageHeight() != null) {
             outputNode.put("imageHeight", output.imageHeight());
+        }
+        return options;
+    }
+
+    private JsonNode optionsJson(ExportServicePayload.Layout layout, ExportServicePayload.Output output, String requestedFileName, List<ExportedItemMetadata> items) {
+        ObjectNode options = (ObjectNode) optionsJson(layout, output, requestedFileName);
+        if (items != null && !items.isEmpty()) {
+            var itemsArray = options.putArray("items");
+            for (ExportedItemMetadata meta : items) {
+                var itemNode = itemsArray.addObject();
+                itemNode.put("order", meta.item().order());
+                itemNode.put("bookCode", meta.item().bookCode());
+                itemNode.put("songNumber", meta.item().songNumber());
+                itemNode.put("refrainMode", meta.item().refrainMode().name());
+                var versesNode = itemNode.putArray("selectedVerses");
+                meta.normalizedVerses().forEach(versesNode::add);
+            }
         }
         return options;
     }
