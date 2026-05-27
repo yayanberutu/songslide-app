@@ -20,6 +20,7 @@ type NotationTokenBase = {
 
 export type NotationNoteToken = NotationTokenBase & {
   type: "NOTE";
+  accidental?: "#" | "b";
   degree: string;
   octave: number;
   shortDurationLevel: number;
@@ -34,6 +35,11 @@ export type NotationRestToken = NotationTokenBase & {
 
 export type NotationBarToken = NotationTokenBase & {
   type: "BAR";
+  lyricSlots: 0;
+};
+
+export type NotationDoubleBarToken = NotationTokenBase & {
+  type: "DOUBLE_BAR";
   lyricSlots: 0;
 };
 
@@ -57,6 +63,7 @@ export type NotationToken =
   | NotationNoteToken
   | NotationRestToken
   | NotationBarToken
+  | NotationDoubleBarToken
   | NotationExtensionToken
   | NotationSlurToken
   | NotationBeamToken;
@@ -81,7 +88,7 @@ type ParseSequenceResult = {
   closed: boolean;
 };
 
-const notePattern = /^([0-9])([',]*)(\/{1,2})?(-{1,2})?$/;
+const notePattern = /^([#b]?)([0-9])([',]*)(\/{1,2})?(-{1,2})?$/;
 const closingTokenNames: Record<")" | "]", string> = {
   ")": "parenthesis",
   "]": "bracket"
@@ -156,14 +163,27 @@ function parseSequence(source: string, cursor: number, stopChar: ")" | "]" | nul
           raw: "|",
           index: cursor
         });
-      } else {
+        cursor += 1;
+        continue;
+      }
+
+      if (cursor + 1 < source.length && source[cursor + 1] === "|") {
         tokens.push({
-          type: "BAR",
-          raw: "|",
+          type: "DOUBLE_BAR",
+          raw: "||",
           index: cursor,
           lyricSlots: 0
         });
+        cursor += 2;
+        continue;
       }
+
+      tokens.push({
+        type: "BAR",
+        raw: "|",
+        index: cursor,
+        lyricSlots: 0
+      });
       cursor += 1;
       continue;
     }
@@ -336,7 +356,8 @@ function parseStandaloneToken(
     };
   }
 
-  const degree = match[1];
+  const accidentalPart = match[1];
+  const degree = match[2];
   if (degree < "1" || degree > "7") {
     return {
       token: null,
@@ -349,15 +370,16 @@ function parseStandaloneToken(
     };
   }
 
-  const octavePart = match[2] ?? "";
-  const shortDurationPart = match[3] ?? "";
-  const holdPart = match[4] ?? "";
+  const octavePart = match[3] ?? "";
+  const shortDurationPart = match[4] ?? "";
+  const holdPart = match[5] ?? "";
 
   return {
     token: {
       type: "NOTE",
       raw,
       index,
+      accidental: accidentalPart ? (accidentalPart as "#" | "b") : undefined,
       degree,
       octave: octaveValue(octavePart),
       shortDurationLevel: shortDurationPart.length,

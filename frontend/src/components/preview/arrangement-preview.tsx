@@ -19,6 +19,7 @@ import {
   exportDownloadHref,
   type ExportOutputFormat,
   type ExportRefrainMode,
+  type ExportTextSizePreset,
   type ExportTheme,
   type SongExportResponse
 } from "@/lib/export-api";
@@ -33,6 +34,7 @@ type ArrangementPreviewProps = {
 
 type RefrainMode = ExportRefrainMode;
 type PreviewTheme = ExportTheme;
+type TextSizePreset = ExportTextSizePreset;
 
 type PreviewLine = {
   notation: string | null;
@@ -61,6 +63,7 @@ export function ArrangementPreview({ songId }: ArrangementPreviewProps) {
   const [refrainMode, setRefrainMode] = useState<RefrainMode>("AFTER_EACH_VERSE");
   const [theme, setTheme] = useState<PreviewTheme>("LIGHT");
   const [showNotation, setShowNotation] = useState(true);
+  const [textSizePreset, setTextSizePreset] = useState<TextSizePreset>("MEDIUM");
   const [outputFormat, setOutputFormat] = useState<ExportOutputFormat>("PPTX");
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
@@ -112,7 +115,7 @@ export function ArrangementPreview({ songId }: ArrangementPreviewProps) {
   useEffect(() => {
     setExportError(null);
     setExportResult(null);
-  }, [outputFormat, refrainMode, selectedVerses, showNotation, theme]);
+  }, [outputFormat, refrainMode, selectedVerses, showNotation, textSizePreset, theme]);
 
   function toggleVerse(verseNumber: string) {
     setSelectedVerses((current) => {
@@ -150,7 +153,8 @@ export function ArrangementPreview({ songId }: ArrangementPreviewProps) {
         layout: {
           theme,
           showNotation,
-          slideSize: "LAYOUT_WIDE"
+          slideSize: "LAYOUT_WIDE",
+          textSizePreset
         }
       });
 
@@ -282,6 +286,19 @@ export function ArrangementPreview({ songId }: ArrangementPreviewProps) {
                 <option value="PPTX">PPTX</option>
                 <option value="PNG">PNG ZIP</option>
               </SelectInput>
+            </Field>
+            <Field label="Text size">
+              <SelectInput
+                value={textSizePreset}
+                onChange={(event) => setTextSizePreset(event.target.value as TextSizePreset)}
+              >
+                <option value="SMALL">Small / compact</option>
+                <option value="MEDIUM">Medium / standard</option>
+                <option value="LARGE">Large / large room</option>
+              </SelectInput>
+              <p className="mt-2 text-xs leading-5 text-ink-500">
+                SMALL fits more content. MEDIUM is standard. LARGE is easier to read from far away.
+              </p>
             </Field>
             <Button
               type="button"

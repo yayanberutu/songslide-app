@@ -26,7 +26,8 @@ export const exportLayoutSchema = z
   .object({
     theme: z.enum(["LIGHT", "DARK"]),
     showNotation: z.boolean(),
-    slideSize: z.enum(["LAYOUT_WIDE", "LAYOUT_4X3", "16:9", "4:3"])
+    slideSize: z.enum(["LAYOUT_WIDE", "LAYOUT_4X3", "16:9", "4:3"]),
+    textSizePreset: z.enum(["SMALL", "MEDIUM", "LARGE"]).default("MEDIUM")
   })
   .strict();
 

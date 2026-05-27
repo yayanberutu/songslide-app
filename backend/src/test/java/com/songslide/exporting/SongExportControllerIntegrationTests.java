@@ -162,6 +162,7 @@ class SongExportControllerIntegrationTests {
         assertThat(payload.path("slides").get(1).path("subtitle").asText()).isEqualTo("Ayat 2");
         assertThat(payload.path("layout").path("theme").asText()).isEqualTo("LIGHT");
         assertThat(payload.path("layout").path("showNotation").asBoolean()).isTrue();
+        assertThat(payload.path("layout").path("textSizePreset").asText()).isEqualTo("MEDIUM");
         assertThat(payload.path("output").path("fileName").asText()).isEqualTo("songslide-export.pptx");
 
         String exportId = JsonPath.read(result.getResponse().getContentAsString(), "$.data.id");
@@ -171,6 +172,38 @@ class SongExportControllerIntegrationTests {
                         "application/vnd.openxmlformats-officedocument.presentationml.presentation"
                 ))
                 .andExpect(content().bytes("pptx-output".getBytes(StandardCharsets.UTF_8)));
+    }
+
+    @Test
+    void createExportDefaultsMissingTextSizePresetToMediumAndPersistsIt() throws Exception {
+        mockMvc.perform(post("/api/songs/{songId}/exports", song.getId())
+                        .contextPath("/api")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(exportRequestWithoutTextSizePreset("PNG", "NONE", "[1]")))
+                .andExpect(status().isOk());
+
+        assertThat(EXPORT_REQUESTS).hasSize(1);
+        JsonNode payload = objectMapper.readTree(EXPORT_REQUESTS.get(0).body());
+        assertThat(payload.path("layout").path("textSizePreset").asText()).isEqualTo("MEDIUM");
+
+        List<SongExport> exports = songExportRepository.findAll();
+        assertThat(exports).hasSize(1);
+        assertThat(exports.get(0).getOptionsJson().path("layout").path("textSizePreset").asText()).isEqualTo("MEDIUM");
+    }
+
+    @Test
+    void createExportForwardsRequestedTextSizePreset() throws Exception {
+        mockMvc.perform(post("/api/songs/{songId}/exports", song.getId())
+                        .contextPath("/api")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(exportRequestWithTextSizePreset("PPTX", "NONE", "[1]", "LARGE")))
+                .andExpect(status().isOk());
+
+        assertThat(EXPORT_REQUESTS).hasSize(1);
+        JsonNode payload = objectMapper.readTree(EXPORT_REQUESTS.get(0).body());
+        assertThat(payload.path("layout").path("textSizePreset").asText()).isEqualTo("LARGE");
+        assertThat(songExportRepository.findAll().get(0).getOptionsJson().path("layout").path("textSizePreset").asText())
+                .isEqualTo("LARGE");
     }
 
     @Test
@@ -318,6 +351,10 @@ class SongExportControllerIntegrationTests {
     }
 
     private String exportRequest(String outputFormat, String refrainMode, String selectedVersesJson) {
+        return exportRequestWithTextSizePreset(outputFormat, refrainMode, selectedVersesJson, "MEDIUM");
+    }
+
+    private String exportRequestWithoutTextSizePreset(String outputFormat, String refrainMode, String selectedVersesJson) {
         return """
                 {
                   "arrangementId": "%s",
@@ -331,6 +368,28 @@ class SongExportControllerIntegrationTests {
                   }
                 }
                 """.formatted(arrangement.getId(), selectedVersesJson, refrainMode, outputFormat);
+    }
+
+    private String exportRequestWithTextSizePreset(
+            String outputFormat,
+            String refrainMode,
+            String selectedVersesJson,
+            String textSizePreset
+    ) {
+        return """
+                {
+                  "arrangementId": "%s",
+                  "selectedVerses": %s,
+                  "refrainMode": "%s",
+                  "outputFormat": "%s",
+                  "layout": {
+                    "theme": "LIGHT",
+                    "showNotation": true,
+                    "slideSize": "LAYOUT_WIDE",
+                    "textSizePreset": "%s"
+                  }
+                }
+                """.formatted(arrangement.getId(), selectedVersesJson, refrainMode, outputFormat, textSizePreset);
     }
 
     private List<String> subtitles(JsonNode payload) {

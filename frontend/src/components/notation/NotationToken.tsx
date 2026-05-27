@@ -28,6 +28,15 @@ export function NotationToken({
     );
   }
 
+  if (token.type === "DOUBLE_BAR") {
+    return (
+      <span className={`${notationArea} w-3 gap-[3px]`}>
+        <span aria-hidden="true" className={`block h-5 w-px ${barTone}`} />
+        <span aria-hidden="true" className={`block h-5 w-[2px] ${barTone}`} />
+      </span>
+    );
+  }
+
   if (token.type === "REST") {
     return <span className={`${notationArea} min-w-4 text-lg font-semibold leading-none ${mutedTone}`}>0</span>;
   }
@@ -97,7 +106,23 @@ export function NotationToken({
         </span>
       ) : null}
 
-      <span className="translate-y-[1px]">{token.degree}</span>
+      <span className="relative translate-y-[1px]">
+        <span>{token.degree}</span>
+        {token.accidental === "#" ? (
+          <span
+            className="pointer-events-none absolute top-1/2 h-[1.5px] bg-current opacity-90"
+            style={{ width: "140%", left: "-20%", transform: "translateY(-50%) rotate(-60deg)" }}
+            aria-hidden="true"
+          />
+        ) : null}
+        {token.accidental === "b" ? (
+          <span
+            className="pointer-events-none absolute top-1/2 h-[1.5px] bg-current opacity-90"
+            style={{ width: "140%", left: "-20%", transform: "translateY(-50%) rotate(60deg)" }}
+            aria-hidden="true"
+          />
+        ) : null}
+      </span>
 
       {token.shortDurationLevel > 0 ? (
         <span className="pointer-events-none absolute top-[0.6rem] right-0 flex flex-col gap-0.5" aria-hidden="true">

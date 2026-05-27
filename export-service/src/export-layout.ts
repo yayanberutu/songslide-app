@@ -1,6 +1,8 @@
 import {
+  createRenderMetrics,
   createNotationTheme,
   renderNotationLineSvg,
+  type RenderMetrics,
   type RenderTheme,
   type RenderedLine
 } from "./notation-renderer";
@@ -13,12 +15,85 @@ const BASE_SURFACE_WIDTH = 1920;
 const BASE_SURFACE_HEIGHT = 1080;
 const TEXT_WIDTH_FACTOR = 0.56;
 
+const PRESET_CONFIG = {
+  SMALL: {
+    renderScale: 0.86,
+    sidePadding: 84,
+    topPadding: 60,
+    bottomPadding: 44,
+    titleFontSize: 34,
+    titleLineHeight: 40,
+    titleGap: 8,
+    subtitleFontSize: 23,
+    subtitleLineHeight: 28,
+    subtitleGap: 8,
+    metadataFontSize: 18,
+    metadataLineHeight: 22,
+    dividerGapTop: 16,
+    dividerGapBottom: 22,
+    dividerThickness: 2,
+    bodyGap: 24,
+    lyricOnlyFontSize: 34,
+    lyricOnlyLineHeight: 42,
+    notationScale: 1.36,
+    footerFontSize: 16,
+    footerHeight: 20
+  },
+  MEDIUM: {
+    renderScale: 1.04,
+    sidePadding: 72,
+    topPadding: 58,
+    bottomPadding: 44,
+    titleFontSize: 38,
+    titleLineHeight: 44,
+    titleGap: 8,
+    subtitleFontSize: 24,
+    subtitleLineHeight: 30,
+    subtitleGap: 8,
+    metadataFontSize: 19,
+    metadataLineHeight: 24,
+    dividerGapTop: 18,
+    dividerGapBottom: 26,
+    dividerThickness: 2,
+    bodyGap: 32,
+    lyricOnlyFontSize: 40,
+    lyricOnlyLineHeight: 48,
+    notationScale: 1.5,
+    footerFontSize: 16,
+    footerHeight: 20
+  },
+  LARGE: {
+    renderScale: 1.32,
+    sidePadding: 64,
+    topPadding: 58,
+    bottomPadding: 44,
+    titleFontSize: 42,
+    titleLineHeight: 48,
+    titleGap: 8,
+    subtitleFontSize: 25,
+    subtitleLineHeight: 31,
+    subtitleGap: 8,
+    metadataFontSize: 20,
+    metadataLineHeight: 25,
+    dividerGapTop: 20,
+    dividerGapBottom: 30,
+    dividerThickness: 2,
+    bodyGap: 40,
+    lyricOnlyFontSize: 46,
+    lyricOnlyLineHeight: 56,
+    notationScale: 1.76,
+    footerFontSize: 17,
+    footerHeight: 22
+  }
+} as const;
+
 export type ExportSurfaceSize = {
   width: number;
   height: number;
 };
 
 export type ExportLayoutTokens = {
+  textSizePreset: ExportPayload["layout"]["textSizePreset"];
   outerPaddingX: number;
   outerPaddingTop: number;
   outerPaddingBottom: number;
@@ -37,6 +112,7 @@ export type ExportLayoutTokens = {
   lyricOnlyFontSize: number;
   lyricOnlyLineHeight: number;
   notationScale: number;
+  renderMetrics: RenderMetrics;
   footerFontSize: number;
   footerHeight: number;
 };
@@ -91,7 +167,7 @@ export function buildExportRenderPlan(
   payload: ExportPayload,
   surface: ExportSurfaceSize
 ): ExportRenderPlan {
-  const tokens = createLayoutTokens(surface);
+  const tokens = createLayoutTokens(surface, payload.layout.textSizePreset);
   const notationTheme = createNotationTheme(payload.layout.theme);
   const contentX = tokens.outerPaddingX;
   const contentWidth = surface.width - tokens.outerPaddingX * 2;
@@ -131,11 +207,11 @@ export function buildExportRenderPlan(
       return;
     }
 
-    pagedLines.forEach((lines) => {
+    pagedLines.forEach((lines, pageIndex) => {
       pages.push({
         sourceSlideIndex: slideIndex,
         title: slide.title,
-        subtitle: slide.subtitle ?? "",
+        subtitle: pageSubtitle(slide.subtitle ?? "", pageIndex, pagedLines.length),
         metadata: slide.metadata ?? null,
         lines
       });
@@ -158,30 +234,38 @@ export function buildExportRenderPlan(
   };
 }
 
-export function createLayoutTokens(surface: ExportSurfaceSize): ExportLayoutTokens {
-  const scale = Math.min(surface.width / BASE_SURFACE_WIDTH, surface.height / BASE_SURFACE_HEIGHT);
+export function createLayoutTokens(
+  surface: ExportSurfaceSize,
+  textSizePreset: ExportPayload["layout"]["textSizePreset"] = "MEDIUM"
+): ExportLayoutTokens {
+  const surfaceScale = Math.min(surface.width / BASE_SURFACE_WIDTH, surface.height / BASE_SURFACE_HEIGHT);
+  const preset = PRESET_CONFIG[textSizePreset];
+  const scale = surfaceScale;
+  const renderMetrics = createRenderMetrics(preset.renderScale * surfaceScale);
 
   return {
-    outerPaddingX: scaleValue(96, scale),
-    outerPaddingTop: scaleValue(68, scale),
-    outerPaddingBottom: scaleValue(52, scale),
-    titleFontSize: scaleValue(26, scale),
-    titleLineHeight: scaleValue(32, scale),
-    titleGap: scaleValue(10, scale),
-    subtitleFontSize: scaleValue(54, scale),
-    subtitleLineHeight: scaleValue(62, scale),
-    subtitleGap: scaleValue(10, scale),
-    metadataFontSize: scaleValue(24, scale),
-    metadataLineHeight: scaleValue(30, scale),
-    dividerGapTop: scaleValue(18, scale),
-    dividerGapBottom: scaleValue(24, scale),
-    dividerThickness: Math.max(1, scaleValue(2, scale)),
-    bodyGap: scaleValue(18, scale),
-    lyricOnlyFontSize: scaleValue(38, scale),
-    lyricOnlyLineHeight: scaleValue(48, scale),
-    notationScale: 1.24 * scale,
-    footerFontSize: scaleValue(18, scale),
-    footerHeight: scaleValue(24, scale)
+    textSizePreset,
+    outerPaddingX: scaleValue(preset.sidePadding, scale),
+    outerPaddingTop: scaleValue(preset.topPadding, scale),
+    outerPaddingBottom: scaleValue(preset.bottomPadding, scale),
+    titleFontSize: scaleValue(preset.titleFontSize, scale),
+    titleLineHeight: scaleValue(preset.titleLineHeight, scale),
+    titleGap: scaleValue(preset.titleGap, scale),
+    subtitleFontSize: scaleValue(preset.subtitleFontSize, scale),
+    subtitleLineHeight: scaleValue(preset.subtitleLineHeight, scale),
+    subtitleGap: scaleValue(preset.subtitleGap, scale),
+    metadataFontSize: scaleValue(preset.metadataFontSize, scale),
+    metadataLineHeight: scaleValue(preset.metadataLineHeight, scale),
+    dividerGapTop: scaleValue(preset.dividerGapTop, scale),
+    dividerGapBottom: scaleValue(preset.dividerGapBottom, scale),
+    dividerThickness: Math.max(1, scaleValue(preset.dividerThickness, scale)),
+    bodyGap: scaleValue(preset.bodyGap, scale),
+    lyricOnlyFontSize: scaleValue(preset.lyricOnlyFontSize, scale),
+    lyricOnlyLineHeight: scaleValue(preset.lyricOnlyLineHeight, scale),
+    notationScale: preset.notationScale * surfaceScale,
+    renderMetrics,
+    footerFontSize: scaleValue(preset.footerFontSize, scale),
+    footerHeight: scaleValue(preset.footerHeight, scale)
   };
 }
 
@@ -276,7 +360,8 @@ function planVisibleLine(
     const rendered = renderNotationLineSvg({
       notation: line.notation,
       lyric: line.lyric,
-      theme: notationTheme
+      theme: notationTheme,
+      metrics: tokens.renderMetrics
     });
     return planNotationLine(rendered, Boolean(line.lyric), contentWidth, tokens.notationScale);
   }
@@ -389,6 +474,14 @@ function estimateTextLineCount(
   }
 
   return Math.min(lines, maxLines);
+}
+
+function pageSubtitle(baseSubtitle: string, pageIndex: number, totalPages: number) {
+  if (totalPages <= 1) {
+    return baseSubtitle;
+  }
+
+  return `${baseSubtitle} - slide ${pageIndex + 1}/${totalPages}`;
 }
 
 function normalizeOptionalText(value: string | null | undefined): string | null {

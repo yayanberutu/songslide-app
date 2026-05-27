@@ -3,6 +3,7 @@ import { apiRequest, apiUrl } from "@/lib/api-client";
 export type ExportOutputFormat = "PPTX" | "PNG";
 export type ExportRefrainMode = "NONE" | "ONCE_AFTER_ALL_VERSES" | "AFTER_EACH_VERSE";
 export type ExportTheme = "LIGHT" | "DARK";
+export type ExportTextSizePreset = "SMALL" | "MEDIUM" | "LARGE";
 
 export type SongExportRequest = {
   arrangementId: string;
@@ -13,6 +14,7 @@ export type SongExportRequest = {
     theme: ExportTheme;
     showNotation: boolean;
     slideSize: "LAYOUT_WIDE";
+    textSizePreset: ExportTextSizePreset;
   };
 };
 
