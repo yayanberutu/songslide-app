@@ -22,6 +22,7 @@ type NotationTokenBase = {
 
 export type NotationNoteToken = NotationTokenBase & {
   type: "NOTE";
+  accidental?: "#" | "b";
   degree: string;
   octave: number;
   shortDurationLevel: number;
@@ -36,6 +37,11 @@ export type NotationRestToken = NotationTokenBase & {
 
 export type NotationBarToken = NotationTokenBase & {
   type: "BAR";
+  lyricSlots: 0;
+};
+
+export type NotationDoubleBarToken = NotationTokenBase & {
+  type: "DOUBLE_BAR";
   lyricSlots: 0;
 };
 
@@ -59,6 +65,7 @@ export type NotationToken =
   | NotationNoteToken
   | NotationRestToken
   | NotationBarToken
+  | NotationDoubleBarToken
   | NotationExtensionToken
   | NotationSlurToken
   | NotationBeamToken;
@@ -147,7 +154,7 @@ export type LyricPlacement = {
   right: number;
 };
 
-const notePattern = /^([0-9])([',]*)(\/{1,2})?(-{1,2})?$/;
+const notePattern = /^([#b]?)([0-9])([',]*)(\/{1,2})?(-{1,2})?$/;
 const closingTokenNames: Record<")" | "]", string> = {
   ")": "parenthesis",
   "]": "bracket"
@@ -325,14 +332,27 @@ function parseSequence(source: string, cursor: number, stopChar: ")" | "]" | nul
           raw: "|",
           index: cursor
         });
-      } else {
+        cursor += 1;
+        continue;
+      }
+
+      if (cursor + 1 < source.length && source[cursor + 1] === "|") {
         tokens.push({
-          type: "BAR",
-          raw: "|",
+          type: "DOUBLE_BAR",
+          raw: "||",
           index: cursor,
           lyricSlots: 0
         });
+        cursor += 2;
+        continue;
       }
+
+      tokens.push({
+        type: "BAR",
+        raw: "|",
+        index: cursor,
+        lyricSlots: 0
+      });
       cursor += 1;
       continue;
     }
@@ -505,7 +525,8 @@ function parseStandaloneToken(
     };
   }
 
-  const degree = match[1];
+  const accidentalPart = match[1];
+  const degree = match[2];
   if (degree < "1" || degree > "7") {
     return {
       token: null,
@@ -518,15 +539,16 @@ function parseStandaloneToken(
     };
   }
 
-  const octavePart = match[2] ?? "";
-  const shortDurationPart = match[3] ?? "";
-  const holdPart = match[4] ?? "";
+  const octavePart = match[3] ?? "";
+  const shortDurationPart = match[4] ?? "";
+  const holdPart = match[5] ?? "";
 
   return {
     token: {
       type: "NOTE",
       raw,
       index,
+      accidental: accidentalPart ? (accidentalPart as "#" | "b") : undefined,
       degree,
       octave: octaveValue(octavePart),
       shortDurationLevel: shortDurationPart.length,
@@ -584,6 +606,8 @@ function renderToken(
       return renderRestToken(x, theme, metrics);
     case "BAR":
       return renderBarToken(x, theme, metrics);
+    case "DOUBLE_BAR":
+      return renderDoubleBarToken(x, theme, metrics);
     case "EXTENSION":
       return renderExtensionToken(x, theme, metrics);
     case "SLUR":
@@ -612,6 +636,21 @@ function renderNoteToken(
   const markup: string[] = [
     `<text x="${centerX}" y="${metrics.baselineY}" text-anchor="middle" dominant-baseline="middle" font-family="Aptos, Arial, sans-serif" font-size="${metrics.noteFontSize}" font-weight="700" fill="#${theme.notationText}">${escapeXml(token.degree)}</text>`
   ];
+
+  if (token.accidental) {
+    const isSharp = token.accidental === "#";
+    const yCenter = metrics.baselineY - 3.5 * metrics.scale;
+    const dx = 7 * metrics.scale;
+    const dy = 11 * metrics.scale;
+    const x1 = centerX - dx;
+    const x2 = centerX + dx;
+    const y1 = isSharp ? yCenter + dy : yCenter - dy;
+    const y2 = isSharp ? yCenter - dy : yCenter + dy;
+    
+    markup.push(
+      `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#${theme.notationText}" stroke-width="${1.8 * metrics.scale}" stroke-linecap="round" opacity="0.9" />`
+    );
+  }
 
   if (token.octave > 0) {
     const startX = centerX - ((token.octave - 1) * (4 * metrics.scale)) / 2;
@@ -665,6 +704,21 @@ function renderBarToken(x: number, theme: RenderTheme, metrics: RenderMetrics): 
     width: metrics.barWidth,
     markup: [
       `<line x1="${centerX}" y1="${18 * metrics.scale}" x2="${centerX}" y2="${40 * metrics.scale}" stroke="#${theme.notationText}" stroke-width="${1.5 * metrics.scale}" stroke-linecap="round" opacity="0.8" />`
+    ],
+    slotAnchors: [],
+    firstNoteAnchor: null
+  };
+}
+
+function renderDoubleBarToken(x: number, theme: RenderTheme, metrics: RenderMetrics): RenderedToken {
+  const width = metrics.barWidth * 1.5;
+  const leftX = x + width / 2 - 2 * metrics.scale;
+  const rightX = leftX + 4 * metrics.scale;
+  return {
+    width,
+    markup: [
+      `<line x1="${leftX}" y1="${18 * metrics.scale}" x2="${leftX}" y2="${40 * metrics.scale}" stroke="#${theme.notationText}" stroke-width="${1.5 * metrics.scale}" stroke-linecap="round" opacity="0.8" />`,
+      `<line x1="${rightX}" y1="${18 * metrics.scale}" x2="${rightX}" y2="${40 * metrics.scale}" stroke="#${theme.notationText}" stroke-width="${3 * metrics.scale}" stroke-linecap="round" opacity="0.8" />`
     ],
     slotAnchors: [],
     firstNoteAnchor: null

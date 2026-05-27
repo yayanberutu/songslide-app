@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { alignNotationAndLyric } from "./alignment";
-import { countNotationLyricSlots, parseNotationLine } from "./notation-parser";
+import { countNotationLyricSlots, NotationNoteToken, parseNotationLine } from "./notation-parser";
 
 test("parses octave, legacy duration, and hold markers", () => {
   const parsed = parseNotationLine("1' 1, 1/ 1// 1-");
@@ -25,14 +25,41 @@ test("parses octave, legacy duration, and hold markers", () => {
   assert.equal(parsed.tokens[4]?.holdCount, 1);
 });
 
-test("parses bar and extension tokens without lyric slots", () => {
-  const parsed = parseNotationLine("2 . | 1");
+test("parses accidental (sharp and flat) tokens", () => {
+  const parsed = parseNotationLine("#1 b7 #4' b2/");
+
+  assert.equal(parsed.issues.length, 0);
+  assert.equal(parsed.tokens.length, 4);
+
+  assert.equal(parsed.tokens[0]?.type, "NOTE");
+  assert.equal((parsed.tokens[0] as NotationNoteToken).accidental, "#");
+  assert.equal((parsed.tokens[0] as NotationNoteToken).degree, "1");
+
+  assert.equal(parsed.tokens[1]?.type, "NOTE");
+  assert.equal((parsed.tokens[1] as NotationNoteToken).accidental, "b");
+  assert.equal((parsed.tokens[1] as NotationNoteToken).degree, "7");
+
+  assert.equal(parsed.tokens[2]?.type, "NOTE");
+  assert.equal((parsed.tokens[2] as NotationNoteToken).accidental, "#");
+  assert.equal((parsed.tokens[2] as NotationNoteToken).degree, "4");
+  assert.equal((parsed.tokens[2] as NotationNoteToken).octave, 1);
+
+  assert.equal(parsed.tokens[3]?.type, "NOTE");
+  assert.equal((parsed.tokens[3] as NotationNoteToken).accidental, "b");
+  assert.equal((parsed.tokens[3] as NotationNoteToken).degree, "2");
+  assert.equal((parsed.tokens[3] as NotationNoteToken).shortDurationLevel, 1);
+});
+
+test("parses bar, double bar, and extension tokens without lyric slots", () => {
+  const parsed = parseNotationLine("2 . | 1 ||");
 
   assert.equal(parsed.issues.length, 0);
   assert.equal(parsed.tokens[1]?.type, "EXTENSION");
   assert.equal(parsed.tokens[1]?.lyricSlots, 0);
   assert.equal(parsed.tokens[2]?.type, "BAR");
   assert.equal(parsed.tokens[2]?.lyricSlots, 0);
+  assert.equal(parsed.tokens[4]?.type, "DOUBLE_BAR");
+  assert.equal(parsed.tokens[4]?.lyricSlots, 0);
 });
 
 test("parses beam and slur groups with correct lyric slot counts", () => {
