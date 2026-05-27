@@ -6,6 +6,7 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -171,6 +172,7 @@ class SongExportControllerIntegrationTests {
                 .andExpect(content().contentType(
                         "application/vnd.openxmlformats-officedocument.presentationml.presentation"
                 ))
+                .andExpect(header().string("Content-Disposition", containsString("filename=\"KJ 37 - 1,2.pptx\"")))
                 .andExpect(content().bytes("pptx-output".getBytes(StandardCharsets.UTF_8)));
     }
 
@@ -232,6 +234,7 @@ class SongExportControllerIntegrationTests {
         mockMvc.perform(get("/api/exports/{exportId}/download", exportId).contextPath("/api"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType("application/zip"))
+                .andExpect(header().string("Content-Disposition", containsString("filename=\"KJ 37 - 3.zip\"")))
                 .andExpect(content().bytes("zip-output".getBytes(StandardCharsets.UTF_8)));
     }
 
@@ -293,6 +296,51 @@ class SongExportControllerIntegrationTests {
         assertThat(exports).hasSize(1);
         assertThat(exports.get(0).getStatus()).isEqualTo(SongExportStatus.FAILED);
         assertThat(exports.get(0).getErrorMessage()).contains("renderer failed");
+    }
+
+    @Test
+    void downloadSanitizesDangerousCharactersFromFilename() throws Exception {
+        SongBook book = song.getSongBook();
+        book.setCode("KJ / \\ \" * ..");
+        songBookRepository.save(book);
+
+        exportServiceResponse = "pptx-output".getBytes(StandardCharsets.UTF_8);
+
+        MvcResult result = mockMvc.perform(post("/api/songs/{songId}/exports", song.getId())
+                        .contextPath("/api")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(exportRequest("PPTX", "NONE", "[\"3\", \"1\", \"2\"]")))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        String exportId = JsonPath.read(result.getResponse().getContentAsString(), "$.data.id");
+        mockMvc.perform(get("/api/exports/{exportId}/download", exportId).contextPath("/api"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition", containsString("filename=\"KJ 37 - 1,2,3.pptx\"")));
+    }
+
+    @Test
+    void downloadWithBlankMetadataFallsBackToDefaultFilename() throws Exception {
+        SongBook book = song.getSongBook();
+        book.setCode("");
+        songBookRepository.save(book);
+
+        song.setSongNumber("");
+        songRepository.save(song);
+
+        exportServiceResponse = "pptx-output".getBytes(StandardCharsets.UTF_8);
+
+        MvcResult result = mockMvc.perform(post("/api/songs/{songId}/exports", song.getId())
+                        .contextPath("/api")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(exportRequest("PPTX", "NONE", "[\"1\"]")))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        String exportId = JsonPath.read(result.getResponse().getContentAsString(), "$.data.id");
+        mockMvc.perform(get("/api/exports/{exportId}/download", exportId).contextPath("/api"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition", containsString("filename=\"songslide-export.pptx\"")));
     }
 
     private JsonNode sampleContentJson() throws Exception {
