@@ -96,6 +96,17 @@ public class SongExportService {
         return songExport;
     }
 
+    @Transactional(readOnly = true)
+    public SongExport getCompletedExportWithMetadata(UUID exportId) {
+        SongExport songExport = songExportRepository.findWithSongAndSongBookById(exportId)
+                .orElseThrow(() -> new ResourceNotFoundException("Export not found: " + exportId));
+
+        if (songExport.getStatus() != SongExportStatus.COMPLETED || songExport.getStorageKey() == null) {
+            throw new IllegalArgumentException("Export is not completed: " + exportId);
+        }
+        return songExport;
+    }
+
     public byte[] readExportFile(SongExport songExport) {
         return storageService.read(songExport.getStorageKey());
     }
