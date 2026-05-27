@@ -8,6 +8,8 @@ import com.songslide.song.Song;
 import com.songslide.song.SongRepository;
 import com.songslide.storage.BinaryStorageService;
 import com.songslide.storage.StorageException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -71,6 +73,56 @@ public class SongExportService {
         try {
             byte[] output = exportServiceClient.export(request.outputFormat(), buildResult.payload());
             String storageKey = storageKey(songId, savedExport.getId(), request.outputFormat());
+            storageService.save(storageKey, output);
+
+            savedExport.setStorageKey(storageKey);
+            savedExport.setStatus(SongExportStatus.COMPLETED);
+            savedExport.setErrorMessage(null);
+            return SongExportMapper.toResponse(songExportRepository.save(savedExport));
+        } catch (ExportServiceException | StorageException exception) {
+            savedExport.setStatus(SongExportStatus.FAILED);
+            savedExport.setErrorMessage(exception.getMessage());
+            songExportRepository.save(savedExport);
+            throw exception;
+        }
+    }
+
+    @Transactional(noRollbackFor = {ExportServiceException.class, StorageException.class})
+    public SongExportResponse createMultipleExport(MultipleSongExportRequest request) {
+        List<MultipleSongExportItem> sortedItems = new ArrayList<>(request.items());
+        sortedItems.sort(java.util.Comparator.comparingInt(MultipleSongExportItem::order));
+
+        List<MultipleSongExportItemContext> contexts = new ArrayList<>();
+        for (MultipleSongExportItem item : sortedItems) {
+            Song song = songRepository.findBySongBook_CodeAndSongNumber(item.bookCode(), item.songNumber())
+                    .orElseThrow(() -> new ResourceNotFoundException("Song not found: " + item.bookCode() + " " + item.songNumber()));
+            SongArrangement arrangement = arrangementRepository.findBySong_IdAndIsDefaultTrue(song.getId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Default arrangement not found for song: " + song.getId()));
+            contexts.add(new MultipleSongExportItemContext(song, arrangement, item));
+        }
+
+        MultipleSongExportItemContext firstContext = contexts.get(0);
+
+        ExportBuildResult buildResult = payloadBuilder.buildMultiple(
+                contexts,
+                request.fileName(),
+                request.outputFormat(),
+                request.layout()
+        );
+
+        SongExport songExport = new SongExport();
+        songExport.setSong(firstContext.song());
+        songExport.setArrangement(firstContext.arrangement());
+        songExport.setFormat(request.outputFormat());
+        songExport.setStatus(SongExportStatus.PENDING);
+        songExport.setSelectedVersesJson(objectMapper.valueToTree(List.of()));
+        songExport.setRefrainMode(RefrainMode.NONE);
+        songExport.setOptionsJson(buildResult.optionsJson());
+        SongExport savedExport = songExportRepository.saveAndFlush(songExport);
+
+        try {
+            byte[] output = exportServiceClient.export(request.outputFormat(), buildResult.payload());
+            String storageKey = storageKey(firstContext.song().getId(), savedExport.getId(), request.outputFormat());
             storageService.save(storageKey, output);
 
             savedExport.setStorageKey(storageKey);
