@@ -40,6 +40,33 @@ export function createSongExport(songId: string, payload: SongExportRequest) {
   });
 }
 
+export type MultipleSongExportItem = {
+  bookCode: string;
+  songNumber: string;
+  selectedVerses: string[];
+  refrainMode: ExportRefrainMode;
+  order: number;
+};
+
+export type MultipleSongExportRequest = {
+  fileName: string;
+  outputFormat: ExportOutputFormat;
+  layout: {
+    theme: ExportTheme;
+    showNotation: boolean;
+    slideSize: "LAYOUT_WIDE";
+    textSizePreset: ExportTextSizePreset;
+  };
+  items: MultipleSongExportItem[];
+};
+
+export function createMultipleSongExport(payload: MultipleSongExportRequest) {
+  return apiRequest<SongExportResponse>("/api/song-exports/multiple", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
 export function exportDownloadHref(downloadUrl: string) {
   return apiUrl(downloadUrl);
 }
