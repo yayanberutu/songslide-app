@@ -1,0 +1,104 @@
+
+services:
+  songslide-postgres:
+    image: postgres:15-alpine
+    container_name: songslide-postgres
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - songslide_postgres_data:/var/lib/postgresql/data
+    networks:
+      - songslide-internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  songslide-export-service:
+    build:
+      context: ./export-service
+    container_name: songslide-export-service
+    restart: unless-stopped
+    env_file:
+      - .env
+    expose:
+      - "${EXPORT_SERVICE_PORT:-3001}"
+    networks:
+      - songslide-internal
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${EXPORT_SERVICE_PORT:-3001}/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  songslide-backend:
+    build:
+      context: ./backend
+    container_name: songslide-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      DATABASE_URL: ${DATABASE_URL}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      EXPORT_SERVICE_URL: ${EXPORT_SERVICE_URL}
+      STORAGE_ROOT: ${STORAGE_ROOT}
+      MAX_SOURCE_IMAGE_SIZE_MB: ${MAX_SOURCE_IMAGE_SIZE_MB}
+      BACKEND_CORS_ALLOWED_ORIGINS: ${BACKEND_CORS_ALLOWED_ORIGINS}
+    expose:
+      - "${BACKEND_PORT:-8080}"
+    volumes:
+      - songslide_backend_storage:${STORAGE_ROOT}
+    networks:
+      - songslide-internal
+      - web
+    depends_on:
+      songslide-postgres:
+        condition: service_healthy
+      songslide-export-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${BACKEND_PORT:-8080}/api/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  songslide-frontend:
+    build:
+      context: ./frontend
+      args:
+        BACKEND_INTERNAL_URL: ${BACKEND_INTERNAL_URL}
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
+    container_name: songslide-frontend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      BACKEND_INTERNAL_URL: ${BACKEND_INTERNAL_URL}
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
+    expose:
+      - "${FRONTEND_PORT:-3000}"
+    networks:
+      - songslide-internal
+      - web
+    depends_on:
+      songslide-backend:
+        condition: service_healthy
+
+volumes:
+  songslide_postgres_data:
+  songslide_backend_storage:
+
+networks:
+  songslide-internal:
+    name: songslide-internal
+  web:
+    external: true
