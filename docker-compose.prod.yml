@@ -32,10 +32,11 @@ services:
     networks:
       - songslide-internal
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:${EXPORT_SERVICE_PORT:-3001}/health"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health', (r) => { r.resume(); process.exit(r.statusCode === 200 ? 0 : 1); }).on('error', () => process.exit(1))"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 20s
 
   songslide-backend:
     build:
