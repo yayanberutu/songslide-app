@@ -261,7 +261,7 @@ function SlurAnchorToken({
 
 function LyricSpan({ text, tone }: { text: string; tone: string }) {
   return (
-    <span className={`inline-flex min-w-4 max-w-[2.4rem] justify-center text-center text-base leading-5 [overflow-wrap:anywhere] ${tone}`}>
+    <span className={`inline-flex min-w-4 justify-center text-center text-base leading-5 whitespace-nowrap ${tone}`}>
       {text}
     </span>
   );
