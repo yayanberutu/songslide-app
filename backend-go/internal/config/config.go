@@ -25,10 +25,17 @@ func LoadConfig() {
 	// Optionally load from .env file if it exists
 	_ = godotenv.Load()
 
-	dbUrl := getEnv("DATABASE_URL", "postgres://songslide:change-me-with-strong-production-password@localhost:5432/songslide")
-	// Translate Spring's jdbc:postgresql:// to standard postgres://
-	if strings.HasPrefix(dbUrl, "jdbc:") {
-		dbUrl = strings.TrimPrefix(dbUrl, "jdbc:")
+	dbUrl := getEnv("DATABASE_URL", "")
+	if dbUrl != "" && !strings.HasPrefix(dbUrl, "jdbc:") && strings.Contains(dbUrl, "@") {
+		// Valid postgres:// or postgresql:// with credentials
+	} else {
+		// Build DSN from individual components
+		dbHost := getEnv("POSTGRES_HOST", "localhost")
+		dbPort := getEnv("POSTGRES_PORT", "5432")
+		dbUser := getEnv("POSTGRES_USER", "songslide")
+		dbPass := getEnv("POSTGRES_PASSWORD", "change-me-local-only")
+		dbName := getEnv("POSTGRES_DB", "songslide")
+		dbUrl = "host=" + dbHost + " user=" + dbUser + " password=" + dbPass + " dbname=" + dbName + " port=" + dbPort + " sslmode=disable"
 	}
 
 	AppConfig = &Config{
