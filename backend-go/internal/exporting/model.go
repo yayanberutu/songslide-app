@@ -78,17 +78,30 @@ type SongExportResponse struct {
 	ID                 uuid.UUID       `json:"id"`
 	SongId             uuid.UUID       `json:"songId"`
 	ArrangementId      uuid.UUID       `json:"arrangementId"`
-	Format             string          `json:"format"`
+	Format             string          `json:"outputFormat"`
 	Status             string          `json:"status"`
 	ErrorMessage       *string         `json:"errorMessage"`
-	SelectedVersesJson json.RawMessage `json:"selectedVersesJson"`
+	SelectedVerses     []string        `json:"selectedVerses"`
 	RefrainMode        string          `json:"refrainMode"`
+	StorageKey         *string         `json:"storageKey"`
+	DownloadUrl        *string         `json:"downloadUrl"`
 	OptionsJson        json.RawMessage `json:"optionsJson"`
 	CreatedAt          time.Time       `json:"createdAt"`
 	UpdatedAt          time.Time       `json:"updatedAt"`
 }
 
 func (e *SongExport) ToResponse() SongExportResponse {
+	var verses []string
+	if err := json.Unmarshal(e.SelectedVersesJson, &verses); err != nil {
+		verses = []string{}
+	}
+
+	var downloadUrl *string
+	if e.Status == "COMPLETED" {
+		url := "/exports/" + e.ID.String() + "/download"
+		downloadUrl = &url
+	}
+
 	return SongExportResponse{
 		ID:                 e.ID,
 		SongId:             e.SongID,
@@ -96,8 +109,10 @@ func (e *SongExport) ToResponse() SongExportResponse {
 		Format:             e.Format,
 		Status:             e.Status,
 		ErrorMessage:       e.ErrorMessage,
-		SelectedVersesJson: e.SelectedVersesJson,
+		SelectedVerses:     verses,
 		RefrainMode:        e.RefrainMode,
+		StorageKey:         e.StorageKey,
+		DownloadUrl:        downloadUrl,
 		OptionsJson:        e.OptionsJson,
 		CreatedAt:          e.CreatedAt,
 		UpdatedAt:          e.UpdatedAt,
