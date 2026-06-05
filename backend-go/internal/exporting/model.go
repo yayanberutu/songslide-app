@@ -54,7 +54,7 @@ type SongExport struct {
 	ID                 uuid.UUID                   `gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
 	SongID             uuid.UUID                   `gorm:"type:uuid;not null"`
 	Song               song.Song                   `gorm:"foreignKey:SongID"`
-	ArrangementID      uuid.UUID                   `gorm:"type:uuid;not null"`
+	ArrangementID      uuid.UUID                   `gorm:"type:uuid;not null;column:song_arrangement_id"`
 	Arrangement        arrangement.SongArrangement `gorm:"foreignKey:ArrangementID"`
 	Format             string                      `gorm:"type:varchar(50);not null"`
 	Status             string                      `gorm:"type:varchar(50);not null"`
