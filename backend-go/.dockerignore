@@ -1,0 +1,6 @@
+api
+.env
+.git
+storage/
+tmp/
+*.out
