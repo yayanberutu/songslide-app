@@ -380,11 +380,11 @@ func slideTitle(s song.Song) string {
 
 func slideMetadata(s song.Song) string {
 	var parts []string
-	if s.KeySignature != "" {
-		parts = append(parts, "Do = "+s.KeySignature)
+	if s.KeySignature != nil && *s.KeySignature != "" {
+		parts = append(parts, "Do = "+*s.KeySignature)
 	}
-	if s.TimeSignature != "" {
-		parts = append(parts, s.TimeSignature)
+	if s.TimeSignature != nil && *s.TimeSignature != "" {
+		parts = append(parts, *s.TimeSignature)
 	}
 	if s.TempoBpm != nil {
 		parts = append(parts, fmt.Sprintf("%d BPM", *s.TempoBpm))

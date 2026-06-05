@@ -14,11 +14,11 @@ type Song struct {
 	SongBook      songbook.SongBook `gorm:"foreignKey:SongBookID"`
 	SongNumber    string            `gorm:"type:varchar(32);not null"`
 	Title         string            `gorm:"type:varchar(255);not null"`
-	KeySignature  string            `gorm:"type:varchar(32)"`
-	TimeSignature string            `gorm:"type:varchar(32)"`
+	KeySignature  *string           `gorm:"type:varchar(32)"`
+	TimeSignature *string           `gorm:"type:varchar(32)"`
 	TempoBpm      *int              `gorm:""`
-	Author        string            `gorm:"type:text"`
-	Notes         string            `gorm:"type:text"`
+	Author        *string           `gorm:"type:text"`
+	Notes         *string           `gorm:"type:text"`
 	CreatedAt     time.Time         `gorm:"not null"`
 	UpdatedAt     time.Time         `gorm:"not null"`
 }
@@ -52,11 +52,11 @@ type SongResponse struct {
 	ID            uuid.UUID               `json:"id"`
 	SongNumber    string                  `json:"songNumber"`
 	Title         string                  `json:"title"`
-	DefaultKey    string                  `json:"defaultKey"`
-	TimeSignature string                  `json:"timeSignature"`
+	DefaultKey    *string                 `json:"defaultKey"`
+	TimeSignature *string                 `json:"timeSignature"`
 	Tempo         *int                    `json:"tempo"`
-	AuthorText    string                  `json:"authorText"`
-	SourceNote    string                  `json:"sourceNote"`
+	AuthorText    *string                 `json:"authorText"`
+	SourceNote    *string                 `json:"sourceNote"`
 	SongBook      SongBookSummaryResponse `json:"songBook"`
 	CreatedAt     time.Time               `json:"createdAt"`
 	UpdatedAt     time.Time               `json:"updatedAt"`

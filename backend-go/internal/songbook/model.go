@@ -11,7 +11,7 @@ type SongBook struct {
 	ID           uuid.UUID `gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
 	Code         string    `gorm:"type:varchar(16);unique;not null"`
 	Name         string    `gorm:"type:varchar(255);not null"`
-	Description  string    `gorm:"type:text"`
+	Description  *string   `gorm:"type:text"`
 	DisplayOrder int       `gorm:"not null;default:0"`
 	Active       bool      `gorm:"not null;default:true"`
 	CreatedAt    time.Time `gorm:"not null"`
@@ -38,7 +38,7 @@ type SongBookResponse struct {
 	ID           uuid.UUID `json:"id"`
 	Code         string    `json:"code"`
 	Name         string    `json:"name"`
-	Description  string    `json:"description"`
+	Description  *string   `json:"description"`
 	DisplayOrder int       `json:"displayOrder"`
 	Active       bool      `json:"active"`
 	CreatedAt    time.Time `json:"createdAt"`
