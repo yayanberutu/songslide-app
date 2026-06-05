@@ -33,13 +33,13 @@ func NewHandler(db *gorm.DB, store *storage.FileSystemStorage, exportClient *Exp
 }
 
 func (h *Handler) RegisterRoutes(r *gin.RouterGroup) {
-	r.POST("/songs/:songId/exports", h.CreateExport)
+	r.POST("/songs/:id/exports", h.CreateExport)
 	r.POST("/song-exports/multiple", h.CreateMultipleExport)
 	r.GET("/exports/:exportId/download", h.Download)
 }
 
 func (h *Handler) CreateExport(c *gin.Context) {
-	songIdStr := c.Param("songId")
+	songIdStr := c.Param("id")
 	songId, err := uuid.Parse(songIdStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, api.Failed(http.StatusBadRequest, "Invalid songId"))

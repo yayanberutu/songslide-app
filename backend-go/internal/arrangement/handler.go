@@ -22,7 +22,7 @@ func NewHandler(db *gorm.DB) *Handler {
 
 func (h *Handler) RegisterRoutes(r *gin.RouterGroup) {
 	// Nested under songs
-	songsGroup := r.Group("/songs/:songId/arrangements")
+	songsGroup := r.Group("/songs/:id/arrangements")
 	{
 		songsGroup.POST("/default", h.CreateDefault)
 		songsGroup.GET("/default", h.GetDefault)
@@ -37,7 +37,7 @@ func (h *Handler) RegisterRoutes(r *gin.RouterGroup) {
 }
 
 func (h *Handler) CreateDefault(c *gin.Context) {
-	songIdStr := c.Param("songId")
+	songIdStr := c.Param("id")
 	songId, err := uuid.Parse(songIdStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, api.Failed(http.StatusBadRequest, "Invalid songId format"))
@@ -91,7 +91,7 @@ func (h *Handler) CreateDefault(c *gin.Context) {
 }
 
 func (h *Handler) GetDefault(c *gin.Context) {
-	songIdStr := c.Param("songId")
+	songIdStr := c.Param("id")
 	songId, err := uuid.Parse(songIdStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, api.Failed(http.StatusBadRequest, "Invalid songId format"))
