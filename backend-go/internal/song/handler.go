@@ -30,6 +30,13 @@ func (h *Handler) RegisterRoutes(r *gin.RouterGroup) {
 	}
 }
 
+func ptrStr(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
 func (h *Handler) Create(c *gin.Context) {
 	var req SongRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -57,11 +64,11 @@ func (h *Handler) Create(c *gin.Context) {
 		SongBookID:    book.ID,
 		SongNumber:    req.SongNumber,
 		Title:         req.Title,
-		KeySignature:  req.DefaultKey,
-		TimeSignature: req.TimeSignature,
+		KeySignature:  ptrStr(req.DefaultKey),
+		TimeSignature: ptrStr(req.TimeSignature),
 		TempoBpm:      req.Tempo,
-		Author:        req.AuthorText,
-		Notes:         req.SourceNote,
+		Author:        ptrStr(req.AuthorText),
+		Notes:         ptrStr(req.SourceNote),
 	}
 
 	if err := h.db.Create(&song).Error; err != nil {
@@ -170,11 +177,11 @@ func (h *Handler) Update(c *gin.Context) {
 
 	s.SongNumber = req.SongNumber
 	s.Title = req.Title
-	s.KeySignature = req.DefaultKey
-	s.TimeSignature = req.TimeSignature
+	s.KeySignature = ptrStr(req.DefaultKey)
+	s.TimeSignature = ptrStr(req.TimeSignature)
 	s.TempoBpm = req.Tempo
-	s.Author = req.AuthorText
-	s.Notes = req.SourceNote
+	s.Author = ptrStr(req.AuthorText)
+	s.Notes = ptrStr(req.SourceNote)
 
 	if err := h.db.Save(&s).Error; err != nil {
 		c.JSON(http.StatusConflict, api.Failed(http.StatusConflict, "Failed to update song"))

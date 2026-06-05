@@ -29,6 +29,13 @@ func (h *Handler) RegisterRoutes(r *gin.RouterGroup) {
 	}
 }
 
+func ptrStr(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
 func (h *Handler) Create(c *gin.Context) {
 	var req SongBookRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -39,7 +46,7 @@ func (h *Handler) Create(c *gin.Context) {
 	book := SongBook{
 		Code:        req.Code,
 		Name:        req.Name,
-		Description: req.Description,
+		Description: ptrStr(req.Description),
 	}
 
 	if req.DisplayOrder != nil {
@@ -123,7 +130,7 @@ func (h *Handler) Update(c *gin.Context) {
 
 	book.Code = req.Code
 	book.Name = req.Name
-	book.Description = req.Description
+	book.Description = ptrStr(req.Description)
 	if req.DisplayOrder != nil {
 		book.DisplayOrder = *req.DisplayOrder
 	}
