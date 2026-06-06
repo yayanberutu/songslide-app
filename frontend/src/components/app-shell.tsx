@@ -7,10 +7,10 @@ import { useSession, signOut } from "next-auth/react";
 
 const navigationItems = [
   { href: "/", label: "Dashboard", adminOnly: false },
-  { href: "/books", label: "Song Books", adminOnly: false },
+  { href: "/books", label: "Song Books", adminOnly: true },
   { href: "/songs", label: "Songs", adminOnly: false },
   { href: "/editor", label: "Editor", adminOnly: true },
-  { href: "/preview", label: "Preview", adminOnly: false },
+  { href: "/preview", label: "Preview", adminOnly: true },
   { href: "/export", label: "Export", adminOnly: false }
 ];
 
