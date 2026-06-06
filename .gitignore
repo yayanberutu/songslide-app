@@ -49,3 +49,5 @@ logs/
 
 # Docker local data
 docker-data/
+songslide_db_backup.sql
+songslide_storage_backup.tar.gz

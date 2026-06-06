@@ -26,7 +26,7 @@ export const authOptions: NextAuthOptions = {
 
           const data = await res.json();
 
-          if (res.ok && data.success && data.data?.token) {
+          if (res.ok && data.status === 'SUCCESS' && data.data?.token) {
             return {
               id: data.data.user.id,
               name: data.data.user.username,
