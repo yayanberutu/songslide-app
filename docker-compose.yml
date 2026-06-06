@@ -3,7 +3,7 @@ services:
     image: postgres:15-alpine
     container_name: songslide-postgres
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       - POSTGRES_DB=songslide
       - POSTGRES_USER=songslide
