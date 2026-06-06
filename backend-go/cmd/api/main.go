@@ -12,6 +12,8 @@ import (
 	"github.com/yayanberutu/songslide/backend-go/internal/songbook"
 	"github.com/yayanberutu/songslide/backend-go/internal/sourceimage"
 	"github.com/yayanberutu/songslide/backend-go/internal/storage"
+	"github.com/yayanberutu/songslide/backend-go/internal/auth"
+	"github.com/yayanberutu/songslide/backend-go/internal/middleware"
 )
 
 func main() {
@@ -36,22 +38,31 @@ func main() {
 		c.JSON(200, gin.H{"status": "UP"})
 	})
 
-	api := r.Group("/api")
+	publicApi := r.Group("/api")
+	{
+		authHandler := auth.NewHandler(db.DB)
+		authHandler.RegisterRoutes(publicApi)
+	}
+
+	protectedApi := r.Group("/api")
+	protectedApi.Use(middleware.AuthMiddleware())
+	protectedApi.Use(middleware.ReadOnlyForMultimedia())
+
 	{
 		songbookHandler := songbook.NewHandler(db.DB)
-		songbookHandler.RegisterRoutes(api)
+		songbookHandler.RegisterRoutes(protectedApi)
 
 		songHandler := song.NewHandler(db.DB)
-		songHandler.RegisterRoutes(api)
+		songHandler.RegisterRoutes(protectedApi)
 
 		arrHandler := arrangement.NewHandler(db.DB)
-		arrHandler.RegisterRoutes(api)
+		arrHandler.RegisterRoutes(protectedApi)
 
 		sourceImageHandler := sourceimage.NewHandler(db.DB, fileStorage)
-		sourceImageHandler.RegisterRoutes(api)
+		sourceImageHandler.RegisterRoutes(publicApi, protectedApi)
 
 		exportHandler := exporting.NewHandler(db.DB, fileStorage, exportClient)
-		exportHandler.RegisterRoutes(api)
+		exportHandler.RegisterRoutes(publicApi, protectedApi)
 	}
 
 	log.Printf("Starting backend-go server on port %s", config.AppConfig.Port)

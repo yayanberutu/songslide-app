@@ -1,16 +1,30 @@
+"use client";
+
 import Link from "next/link";
 import { apiBaseUrl } from "@/lib/api-client";
+import { usePathname } from "next/navigation";
+import { useSession, signOut } from "next-auth/react";
 
 const navigationItems = [
-  { href: "/", label: "Dashboard" },
-  { href: "/books", label: "Song Books" },
-  { href: "/songs", label: "Songs" },
-  { href: "/editor", label: "Editor" },
-  { href: "/preview", label: "Preview" },
-  { href: "/export", label: "Export" }
+  { href: "/", label: "Dashboard", adminOnly: false },
+  { href: "/books", label: "Song Books", adminOnly: false },
+  { href: "/songs", label: "Songs", adminOnly: false },
+  { href: "/editor", label: "Editor", adminOnly: true },
+  { href: "/preview", label: "Preview", adminOnly: false },
+  { href: "/export", label: "Export", adminOnly: false }
 ];
 
 export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) {
+  const pathname = usePathname();
+  const { data: session } = useSession();
+  const isLogin = pathname === "/login";
+
+  if (isLogin) {
+    return <main className="min-h-screen bg-zinc-50">{children}</main>;
+  }
+
+  const role = session?.user?.role || "MULTIMEDIA";
+
   return (
     <div className="min-h-screen">
       <header className="border-b border-zinc-200 bg-white">
@@ -21,12 +35,25 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
             </Link>
             <p className="mt-1 text-sm text-ink-500">Local church song notation workflow</p>
           </div>
-          <div className="text-xs text-ink-500">
-            API: <span className="font-medium text-ink-700">{apiBaseUrl}</span>
+          <div className="flex items-center gap-4 text-xs text-ink-500">
+            <span>API: <span className="font-medium text-ink-700">{apiBaseUrl}</span></span>
+            {session && (
+              <div className="flex items-center gap-3">
+                <span className="rounded-full bg-ink-100 px-2 py-1 text-ink-800">
+                  {session.user?.name} ({role})
+                </span>
+                <button
+                  onClick={() => signOut({ callbackUrl: "/login" })}
+                  className="rounded bg-zinc-200 px-2 py-1 hover:bg-zinc-300 text-ink-900"
+                >
+                  Sign Out
+                </button>
+              </div>
+            )}
           </div>
         </div>
         <nav className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-4 pb-3 sm:px-6 lg:px-8">
-          {navigationItems.map((item) => (
+          {navigationItems.filter(item => role === "ADMIN" || !item.adminOnly).map((item) => (
             <Link
               key={item.href}
               href={item.href}

@@ -32,10 +32,10 @@ func NewHandler(db *gorm.DB, store *storage.FileSystemStorage, exportClient *Exp
 	}
 }
 
-func (h *Handler) RegisterRoutes(r *gin.RouterGroup) {
-	r.POST("/songs/:id/exports", h.CreateExport)
-	r.POST("/song-exports/multiple", h.CreateMultipleExport)
-	r.GET("/exports/:exportId/download", h.Download)
+func (h *Handler) RegisterRoutes(public *gin.RouterGroup, protected *gin.RouterGroup) {
+	protected.POST("/songs/:id/exports", h.CreateExport)
+	protected.POST("/song-exports/multiple", h.CreateMultipleExport)
+	public.GET("/exports/:exportId/download", h.Download)
 }
 
 func (h *Handler) CreateExport(c *gin.Context) {

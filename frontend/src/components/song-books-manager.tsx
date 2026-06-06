@@ -11,6 +11,7 @@ import {
   updateSongBook
 } from "@/lib/song-api";
 import { Button, EmptyState, Field, InlineError, LoadingState, TextArea, TextInput } from "@/components/ui";
+import { useSession } from "next-auth/react";
 
 type SongBookFormState = {
   code: string;
@@ -32,6 +33,8 @@ export function SongBooksManager() {
   const [submitting, setSubmitting] = useState(false);
   const [editing, setEditing] = useState<SongBook | null>(null);
   const [form, setForm] = useState<SongBookFormState>(emptyForm);
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === "ADMIN";
 
   useEffect(() => {
     void loadBooks();
@@ -126,7 +129,8 @@ export function SongBooksManager() {
         </p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
+      <div className={`grid gap-6 ${isAdmin ? "lg:grid-cols-[360px_1fr]" : ""}`}>
+        {isAdmin && (
         <form onSubmit={handleSubmit} className="space-y-4 rounded-md border border-zinc-200 bg-white p-4">
           <div>
             <h2 className="text-base font-semibold text-ink-950">
@@ -171,6 +175,7 @@ export function SongBooksManager() {
             ) : null}
           </div>
         </form>
+        )}
 
         <div className="space-y-3">
           <InlineError message={pageError} />
@@ -186,7 +191,7 @@ export function SongBooksManager() {
                     <th className="px-4 py-3">Code</th>
                     <th className="px-4 py-3">Name</th>
                     <th className="px-4 py-3">Description</th>
-                    <th className="px-4 py-3 text-right">Actions</th>
+                    {isAdmin && <th className="px-4 py-3 text-right">Actions</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-100">
@@ -195,16 +200,18 @@ export function SongBooksManager() {
                       <td className="px-4 py-3 font-semibold text-ink-950">{songBook.code}</td>
                       <td className="px-4 py-3 text-ink-700">{songBook.name}</td>
                       <td className="px-4 py-3 text-ink-500">{songBook.description || "No description"}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex justify-end gap-2">
-                          <Button type="button" onClick={() => startEdit(songBook)}>
-                            Edit
-                          </Button>
-                          <Button type="button" variant="danger" onClick={() => void handleDelete(songBook)}>
-                            Delete
-                          </Button>
-                        </div>
-                      </td>
+                      {isAdmin && (
+                        <td className="px-4 py-3">
+                          <div className="flex justify-end gap-2">
+                            <Button type="button" onClick={() => startEdit(songBook)}>
+                              Edit
+                            </Button>
+                            <Button type="button" variant="danger" onClick={() => void handleDelete(songBook)}>
+                              Delete
+                            </Button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>

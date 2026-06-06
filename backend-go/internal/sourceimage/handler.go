@@ -25,15 +25,15 @@ func NewHandler(db *gorm.DB, store *storage.FileSystemStorage) *Handler {
 	return &Handler{db: db, store: store}
 }
 
-func (h *Handler) RegisterRoutes(r *gin.RouterGroup) {
-	songsGroup := r.Group("/songs/:id/images")
+func (h *Handler) RegisterRoutes(public *gin.RouterGroup, protected *gin.RouterGroup) {
+	songsGroup := protected.Group("/songs/:id/images")
 	{
 		songsGroup.POST("", h.UploadImage)
 		songsGroup.GET("", h.ListImages)
 		songsGroup.DELETE("/:imageId", h.DeleteImage)
 	}
 
-	r.GET("/source-images/*storageKey", h.DownloadImage)
+	public.GET("/source-images/*storageKey", h.DownloadImage)
 }
 
 func (h *Handler) UploadImage(c *gin.Context) {

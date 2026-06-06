@@ -32,6 +32,7 @@ import { getSong, type Song } from "@/lib/song-api";
 import { AlignedNotationLine } from "@/components/notation/AlignedNotationLine";
 import { NotationLine } from "@/components/notation/NotationLine";
 import { Button, EmptyState, Field, InlineError, LoadingState, SelectInput } from "@/components/ui";
+import { useSession } from "next-auth/react";
 
 type ArrangementPreviewProps = {
   songId: string;
@@ -75,6 +76,8 @@ export function ArrangementPreview({ songId }: ArrangementPreviewProps) {
   const [exportResult, setExportResult] = useState<SongExportResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === "ADMIN";
 
   useEffect(() => {
     async function loadPreview() {
@@ -213,12 +216,14 @@ export function ArrangementPreview({ songId }: ArrangementPreviewProps) {
             >
               Song detail
             </Link>
-            <Link
-              href={`/songs/${songId}/editor`}
-              className="inline-flex items-center justify-center rounded-md bg-ink-950 px-3 py-2 text-sm font-medium text-white hover:bg-ink-700"
-            >
-              Open editor
-            </Link>
+            {isAdmin && (
+              <Link
+                href={`/songs/${songId}/editor`}
+                className="inline-flex items-center justify-center rounded-md bg-ink-950 px-3 py-2 text-sm font-medium text-white hover:bg-ink-700"
+              >
+                Open editor
+              </Link>
+            )}
           </div>
         </div>
       </div>

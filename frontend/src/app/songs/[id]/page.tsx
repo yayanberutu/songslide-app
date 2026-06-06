@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
 type SongDetailPlaceholderPageProps = {
   params: Promise<{
@@ -8,6 +10,8 @@ type SongDetailPlaceholderPageProps = {
 
 export default async function SongDetailPlaceholderPage({ params }: SongDetailPlaceholderPageProps) {
   const { id } = await params;
+  const session = await getServerSession(authOptions);
+  const isAdmin = session?.user?.role === "ADMIN";
 
   return (
     <section className="space-y-6">
@@ -24,12 +28,14 @@ export default async function SongDetailPlaceholderPage({ params }: SongDetailPl
       >
         Back to songs
       </Link>
-      <Link
-        href={`/songs/${id}/editor`}
-        className="ml-2 inline-flex items-center justify-center rounded-md bg-ink-950 px-3 py-2 text-sm font-medium text-white hover:bg-ink-700"
-      >
-        Open editor
-      </Link>
+      {isAdmin && (
+        <Link
+          href={`/songs/${id}/editor`}
+          className="ml-2 inline-flex items-center justify-center rounded-md bg-ink-950 px-3 py-2 text-sm font-medium text-white hover:bg-ink-700"
+        >
+          Open editor
+        </Link>
+      )}
       <Link
         href={`/songs/${id}/preview`}
         className="ml-2 inline-flex items-center justify-center rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-ink-700 hover:bg-zinc-100"

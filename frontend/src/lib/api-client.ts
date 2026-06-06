@@ -1,3 +1,5 @@
+import { getSession } from "next-auth/react";
+
 export const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 
 export function apiUrl(path: string) {
@@ -34,6 +36,13 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
   const headers = new Headers(init.headers);
   if (init.body !== undefined && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
+  }
+
+  if (typeof window !== "undefined") {
+    const session = await getSession();
+    if (session?.accessToken) {
+      headers.set("Authorization", `Bearer ${session.accessToken}`);
+    }
   }
 
   const response = await fetch(apiUrl(path), {
