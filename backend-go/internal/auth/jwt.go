@@ -2,15 +2,21 @@ package auth
 
 import (
 	"errors"
+	"os"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	"github.com/yayanberutu/songslide/backend-go/internal/config"
 	"github.com/yayanberutu/songslide/backend-go/internal/user"
 )
 
-var JWTSecret = []byte(config.AppConfig.Env + "_super_secret_songslide_key_2026") // In production, this should come from env
+func getJWTSecret() []byte {
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		return []byte("super_secret_songslide_key_2026")
+	}
+	return []byte(secret)
+}
 
 type Claims struct {
 	UserID   uuid.UUID `json:"userId"`
@@ -32,13 +38,13 @@ func GenerateToken(u user.User) (string, error) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(JWTSecret)
+	return token.SignedString(getJWTSecret())
 }
 
 func ValidateToken(tokenStr string) (*Claims, error) {
 	claims := &Claims{}
 	token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
-		return JWTSecret, nil
+		return getJWTSecret(), nil
 	})
 
 	if err != nil {
