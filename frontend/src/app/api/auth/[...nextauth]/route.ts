@@ -1,4 +1,4 @@
-import NextAuth, { NextAuthOptions } from "next-auth";
+import NextAuth, { NextAuthOptions, User } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 
 export const authOptions: NextAuthOptions = {
@@ -32,10 +32,10 @@ export const authOptions: NextAuthOptions = {
               name: data.data.user.username,
               role: data.data.user.role,
               token: data.data.token,
-            } as any;
+            } as unknown as User;
           }
           return null;
-        } catch (e) {
+        } catch {
           return null;
         }
       }
@@ -44,8 +44,8 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.role = (user as any).role;
-        token.accessToken = (user as any).token;
+        token.role = (user as User).role;
+        token.accessToken = (user as User).token;
         token.id = user.id;
       }
       return token;

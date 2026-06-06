@@ -36,7 +36,7 @@ services:
 
   backend:
     build:
-      context: ./backend
+      context: ./backend-go
       dockerfile: Dockerfile
     container_name: songslide-backend
     ports:
@@ -48,7 +48,7 @@ services:
       - POSTGRES_DB=songslide
       - POSTGRES_USER=songslide
       - POSTGRES_PASSWORD=change-me-local-only
-      - DATABASE_URL=jdbc:postgresql://postgres:5432/songslide
+      - DATABASE_URL=postgres://songslide:change-me-local-only@postgres:5432/songslide?sslmode=disable
       - EXPORT_SERVICE_URL=http://export-service:3001
       - STORAGE_ROOT=/app/storage
       - MAX_SOURCE_IMAGE_SIZE_MB=10
@@ -60,25 +60,27 @@ services:
       export-service:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/api/actuator/health || exit 1"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/api/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 25s
+      start_period: 5s
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        - BACKEND_INTERNAL_URL=http://backend:8080
-        - NEXT_PUBLIC_API_BASE_URL=http://localhost:8080
+        - BACKEND_INTERNAL_URL=http://backend:8080/api
+        - NEXT_PUBLIC_API_BASE_URL=http://localhost:8080/api
     container_name: songslide-frontend
     ports:
       - "3000:3000"
     environment:
-      - BACKEND_INTERNAL_URL=http://backend:8080
-      - NEXT_PUBLIC_API_BASE_URL=http://localhost:8080
+      - BACKEND_INTERNAL_URL=http://backend:8080/api
+      - NEXT_PUBLIC_API_BASE_URL=http://localhost:8080/api
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=local_super_secret_for_development_purposes_only
     depends_on:
       backend:
         condition: service_healthy
