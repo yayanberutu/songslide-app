@@ -38,6 +38,11 @@ func main() {
 		c.JSON(200, gin.H{"status": "UP"})
 	})
 
+	// Standard health check for local docker-compose
+	r.GET("/api/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{"status": "UP"})
+	})
+
 	publicApi := r.Group("/api")
 	{
 		authHandler := auth.NewHandler(db.DB)
