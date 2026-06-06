@@ -30,3 +30,10 @@ func Failed(code int, errorMessage string) ApiResponse[any] {
 		ErrorMessage: errorMessage,
 	}
 }
+
+type PaginatedData[T any] struct {
+	Items      []T   `json:"items"`
+	TotalCount int64 `json:"totalCount"`
+	Page       int   `json:"page"`
+	Limit      int   `json:"limit"`
+}

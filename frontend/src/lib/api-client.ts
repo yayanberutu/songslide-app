@@ -22,6 +22,13 @@ export type ApiResponse<T> = {
   errorMessage: string | null;
 };
 
+export type PaginatedData<T> = {
+  items: T[];
+  totalCount: number;
+  page: number;
+  limit: number;
+};
+
 export class ApiError extends Error {
   readonly code: number;
 

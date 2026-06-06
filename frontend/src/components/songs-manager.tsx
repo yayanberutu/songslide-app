@@ -11,9 +11,10 @@ import {
   type Song,
   type SongBook,
   type SongPayload,
-  updateSong
+  updateSong,
+  type SongSearchParams
 } from "@/lib/song-api";
-import { Button, EmptyState, Field, InlineError, LoadingState, SelectInput, TextArea, TextInput } from "@/components/ui";
+import { Button, EmptyState, Field, InlineError, LoadingState, SelectInput, TextArea, TextInput, Modal } from "@/components/ui";
 import { useSession } from "next-auth/react";
 
 type SongFormState = {
@@ -27,12 +28,6 @@ type SongFormState = {
   sourceNote: string;
 };
 
-type SongFilters = {
-  bookCode: string;
-  title: string;
-  songNumber: string;
-};
-
 const emptySongForm: SongFormState = {
   bookCode: "",
   songNumber: "",
@@ -44,75 +39,84 @@ const emptySongForm: SongFormState = {
   sourceNote: ""
 };
 
-const emptyFilters: SongFilters = {
+const emptyFilters: SongSearchParams = {
   bookCode: "",
   title: "",
-  songNumber: ""
+  songNumber: "",
+  page: 1,
+  limit: 50
 };
 
 export function SongsManager() {
   const [songBooks, setSongBooks] = useState<SongBook[]>([]);
   const [songs, setSongs] = useState<Song[]>([]);
-  const [filters, setFilters] = useState<SongFilters>(emptyFilters);
+  const [filters, setFilters] = useState<SongSearchParams>(emptyFilters);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [editing, setEditing] = useState<Song | null>(null);
   const [form, setForm] = useState<SongFormState>(emptySongForm);
+  
   const { data: session } = useSession();
   const isAdmin = session?.user?.role === "ADMIN";
 
+  // Load books on mount
   useEffect(() => {
-    void loadInitialData();
+    void loadBooks();
   }, []);
+
+  // Debounced search
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      void loadSongList(filters);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [filters.title, filters.songNumber, filters.bookCode, filters.page]);
 
   const sortedSongBooks = useMemo(
     () => [...songBooks].sort((a, b) => a.code.localeCompare(b.code)),
     [songBooks]
   );
 
-  async function loadInitialData() {
-    setLoading(true);
-    setPageError(null);
+  async function loadBooks() {
     try {
-      const [books, loadedSongs] = await Promise.all([listSongBooks(), listSongs()]);
+      const books = await listSongBooks();
       setSongBooks(books);
-      setSongs(loadedSongs);
-      if (books.length > 0) {
-        setForm((current) => ({ ...current, bookCode: current.bookCode || books[0].code }));
-      }
     } catch (error) {
-      setPageError(errorMessage(error, "Unable to load songs"));
-    } finally {
-      setLoading(false);
+      setPageError(errorMessage(error, "Unable to load song books"));
     }
   }
 
-  async function loadSongList(nextFilters = filters) {
+  async function loadSongList(currentFilters: SongSearchParams) {
     setLoading(true);
     setPageError(null);
     try {
-      setSongs(await listSongs({
-        bookCode: emptyToUndefined(nextFilters.bookCode),
-        title: emptyToUndefined(nextFilters.title),
-        songNumber: emptyToUndefined(nextFilters.songNumber)
-      }));
+      const result = await listSongs({
+        bookCode: emptyToUndefined(currentFilters.bookCode),
+        title: emptyToUndefined(currentFilters.title),
+        songNumber: emptyToUndefined(currentFilters.songNumber),
+        page: currentFilters.page,
+        limit: currentFilters.limit
+      });
+      setSongs(result.items);
+      setTotalCount(result.totalCount);
     } catch (error) {
       setPageError(errorMessage(error, "Unable to load songs"));
     } finally {
       setLoading(false);
     }
-  }
-
-  async function handleFilterSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    await loadSongList(filters);
   }
 
   async function clearFilters() {
     setFilters(emptyFilters);
-    await loadSongList(emptyFilters);
+  }
+
+  function handlePageChange(newPage: number) {
+    setFilters(f => ({ ...f, page: newPage }));
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -128,8 +132,9 @@ export function SongsManager() {
       } else {
         await createSong(payload);
       }
+      setIsModalOpen(false);
       resetForm();
-      await loadSongList();
+      await loadSongList(filters);
     } catch (error) {
       setFormError(errorMessage(error, "Unable to save song"));
     } finally {
@@ -150,6 +155,12 @@ export function SongsManager() {
       sourceNote: song.sourceNote ?? ""
     });
     setFormError(null);
+    setIsModalOpen(true);
+  }
+  
+  function startCreate() {
+    resetForm();
+    setIsModalOpen(true);
   }
 
   function resetForm() {
@@ -169,31 +180,37 @@ export function SongsManager() {
     setPageError(null);
     try {
       await deleteSong(song.id);
-      await loadSongList();
-      if (editing?.id === song.id) {
-        resetForm();
-      }
+      await loadSongList(filters);
     } catch (error) {
       setPageError(errorMessage(error, "Unable to delete song"));
     }
   }
 
+  const totalPages = Math.ceil(totalCount / (filters.limit || 50));
+
   return (
     <section className="space-y-6">
-      <div className="border-b border-zinc-200 pb-5">
-        <p className="text-sm font-semibold uppercase tracking-normal text-ink-500">Songs</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-normal text-ink-950">Song catalog</h1>
-        <p className="mt-3 max-w-3xl text-base leading-7 text-ink-700">
-          Create and maintain song metadata before adding notation arrangements.
-        </p>
+      <div className="flex flex-col gap-4 border-b border-zinc-200 pb-5 md:flex-row md:items-end md:justify-between">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-normal text-ink-500">Songs</p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-normal text-ink-950">Song catalog</h1>
+          <p className="mt-3 max-w-3xl text-base leading-7 text-ink-700">
+            Create and maintain song metadata before adding notation arrangements.
+          </p>
+        </div>
+        {isAdmin && (
+          <Button variant="primary" onClick={startCreate}>
+            + Add New Song
+          </Button>
+        )}
       </div>
 
-      <form onSubmit={handleFilterSubmit} className="rounded-md border border-zinc-200 bg-white p-4">
+      <div className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
         <div className="grid gap-4 md:grid-cols-4">
           <Field label="Book filter">
             <SelectInput
               value={filters.bookCode}
-              onChange={(event) => setFilters((current) => ({ ...current, bookCode: event.target.value }))}
+              onChange={(event) => setFilters((current) => ({ ...current, bookCode: event.target.value, page: 1 }))}
             >
               <option value="">All books</option>
               {sortedSongBooks.map((book) => (
@@ -206,47 +223,120 @@ export function SongsManager() {
           <Field label="Title search">
             <TextInput
               value={filters.title}
-              onChange={(event) => setFilters((current) => ({ ...current, title: event.target.value }))}
+              onChange={(event) => setFilters((current) => ({ ...current, title: event.target.value, page: 1 }))}
               placeholder="Bila Kurenung"
             />
           </Field>
           <Field label="Song number">
             <TextInput
               value={filters.songNumber}
-              onChange={(event) => setFilters((current) => ({ ...current, songNumber: event.target.value }))}
+              onChange={(event) => setFilters((current) => ({ ...current, songNumber: event.target.value, page: 1 }))}
               placeholder="37"
             />
           </Field>
-          <div className="flex items-end gap-2">
-            <Button variant="primary" type="submit" disabled={loading}>
-              Search
-            </Button>
-            <Button type="button" onClick={() => void clearFilters()} disabled={loading}>
-              Reset
+          <div className="flex items-end">
+            <Button type="button" onClick={clearFilters}>
+              Reset Filters
             </Button>
           </div>
         </div>
-      </form>
+      </div>
 
-      <div className={`grid gap-6 ${isAdmin ? "xl:grid-cols-[420px_1fr]" : ""}`}>
-        {isAdmin && (
-        <form onSubmit={handleSubmit} className="space-y-4 rounded-md border border-zinc-200 bg-white p-4">
-          <div>
-            <h2 className="text-base font-semibold text-ink-950">{editing ? "Edit song" : "Create song"}</h2>
-            <p className="mt-1 text-sm text-ink-500">Use book code selection for the MVP workflow.</p>
+      <div className="space-y-3">
+        <InlineError message={pageError} />
+        {loading && songs.length === 0 ? (
+          <LoadingState label="Loading songs..." />
+        ) : songs.length === 0 ? (
+          <EmptyState title="No songs found" description="Adjust your filters or add a new song." />
+        ) : (
+          <div className="overflow-hidden rounded-md border border-zinc-200 bg-white shadow-sm">
+            <table className="min-w-full divide-y divide-zinc-200 text-sm">
+              <thead className="bg-zinc-50 text-left text-xs font-semibold uppercase tracking-normal text-ink-500">
+                <tr>
+                  <th className="px-4 py-3">Code</th>
+                  <th className="px-4 py-3">Title</th>
+                  <th className="px-4 py-3">Metadata</th>
+                  <th className="px-4 py-3">Author</th>
+                  <th className="px-4 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-100">
+                {songs.map((song) => (
+                  <tr key={song.id} className="hover:bg-zinc-50">
+                    <td className="px-4 py-3">
+                      <span className="font-semibold text-ink-950">{song.songBook.code}</span>
+                      <span className="ml-1 text-ink-500">#{song.songNumber}</span>
+                    </td>
+                    <td className="px-4 py-3 font-medium text-ink-900">{song.title}</td>
+                    <td className="px-4 py-3 text-ink-500">
+                      {[song.defaultKey ? `Do=${song.defaultKey}` : null, song.timeSignature, song.tempo ? `${song.tempo}bpm` : null]
+                        .filter(Boolean)
+                        .join(" · ") || "—"}
+                    </td>
+                    <td className="px-4 py-3 text-ink-500">{song.authorText || "—"}</td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex justify-end gap-3 text-sm">
+                        <Link href={`/songs/${song.id}`} className="font-medium text-blue-600 hover:text-blue-800">
+                          View
+                        </Link>
+                        {isAdmin && (
+                          <>
+                            <Link href={`/songs/${song.id}/editor`} className="font-medium text-indigo-600 hover:text-indigo-800">
+                              Editor
+                            </Link>
+                            <button onClick={() => startEdit(song)} className="font-medium text-zinc-600 hover:text-zinc-800">
+                              Edit
+                            </button>
+                            <button onClick={() => void handleDelete(song)} className="font-medium text-red-600 hover:text-red-800">
+                              Delete
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between border-t border-zinc-200 bg-zinc-50 px-4 py-3">
+                <span className="text-sm text-ink-500">
+                  Showing <span className="font-medium">{(filters.page! - 1) * filters.limit! + 1}</span> to <span className="font-medium">{Math.min(filters.page! * filters.limit!, totalCount)}</span> of <span className="font-medium">{totalCount}</span> songs
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    disabled={filters.page === 1}
+                    onClick={() => handlePageChange(filters.page! - 1)}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    disabled={filters.page === totalPages}
+                    onClick={() => handlePageChange(filters.page! + 1)}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
+        )}
+      </div>
+
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editing ? "Edit song" : "Create song"}>
+        <form onSubmit={handleSubmit} className="space-y-4">
           <InlineError message={formError} />
           {sortedSongBooks.length === 0 ? (
             <InlineError message="Create at least one song book before adding songs." />
           ) : null}
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-1">
+          <div className="grid gap-4 md:grid-cols-2">
             <Field label="Book">
               <SelectInput
                 required
                 value={form.bookCode}
                 onChange={(event) => setForm((current) => ({ ...current, bookCode: event.target.value }))}
               >
-                <option value="">Select book</option>
                 {sortedSongBooks.map((book) => (
                   <option key={book.id} value={book.code}>
                     {book.code} - {book.name}
@@ -263,15 +353,17 @@ export function SongsManager() {
                 placeholder="37"
               />
             </Field>
-            <Field label="Title">
-              <TextInput
-                required
-                maxLength={255}
-                value={form.title}
-                onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
-                placeholder="Bila Kurenung Dosaku"
-              />
-            </Field>
+            <div className="md:col-span-2">
+              <Field label="Title">
+                <TextInput
+                  required
+                  maxLength={255}
+                  value={form.title}
+                  onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
+                  placeholder="Bila Kurenung Dosaku"
+                />
+              </Field>
+            </div>
             <Field label="Key">
               <TextInput
                 maxLength={32}
@@ -280,7 +372,7 @@ export function SongsManager() {
                 placeholder="G"
               />
             </Field>
-            <Field label="Time signature">
+            <Field label="Time sig">
               <TextInput
                 maxLength={32}
                 value={form.timeSignature}
@@ -305,103 +397,26 @@ export function SongsManager() {
                 placeholder="Traditional"
               />
             </Field>
-            <Field label="Source note">
-              <TextArea
-                value={form.sourceNote}
-                onChange={(event) => setForm((current) => ({ ...current, sourceNote: event.target.value }))}
-                placeholder="Optional source or operator notes"
-              />
-            </Field>
+            <div className="md:col-span-2">
+              <Field label="Source note">
+                <TextArea
+                  value={form.sourceNote}
+                  onChange={(event) => setForm((current) => ({ ...current, sourceNote: event.target.value }))}
+                  placeholder="Optional source or operator notes"
+                />
+              </Field>
+            </div>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap justify-end gap-2 pt-4">
+            <Button type="button" onClick={() => setIsModalOpen(false)} disabled={submitting}>
+              Cancel
+            </Button>
             <Button variant="primary" type="submit" disabled={submitting || sortedSongBooks.length === 0}>
               {submitting ? "Saving..." : editing ? "Save changes" : "Create song"}
             </Button>
-            {editing ? (
-              <Button type="button" onClick={resetForm} disabled={submitting}>
-                Cancel
-              </Button>
-            ) : null}
           </div>
         </form>
-        )}
-
-        <div className="space-y-3">
-          <InlineError message={pageError} />
-          {loading ? (
-            <LoadingState label="Loading songs..." />
-          ) : songs.length === 0 ? (
-            <EmptyState title="No songs found" description="Create a song or adjust the search filters." />
-          ) : (
-            <div className="overflow-hidden rounded-md border border-zinc-200 bg-white">
-              <table className="min-w-full divide-y divide-zinc-200 text-sm">
-                <thead className="bg-zinc-50 text-left text-xs font-semibold uppercase tracking-normal text-ink-500">
-                  <tr>
-                    <th className="px-4 py-3">Book</th>
-                    <th className="px-4 py-3">Number</th>
-                    <th className="px-4 py-3">Title</th>
-                    <th className="px-4 py-3">Music</th>
-                    <th className="px-4 py-3">Author</th>
-                    <th className="px-4 py-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-100">
-                  {songs.map((song) => (
-                    <tr key={song.id}>
-                      <td className="px-4 py-3">
-                        <p className="font-semibold text-ink-950">{song.songBook.code}</p>
-                        <p className="text-xs text-ink-500">{song.songBook.name}</p>
-                      </td>
-                      <td className="px-4 py-3 font-semibold text-ink-950">{song.songNumber}</td>
-                      <td className="px-4 py-3 text-ink-700">{song.title}</td>
-                      <td className="px-4 py-3 text-ink-500">
-                        {[song.defaultKey ? `Do = ${song.defaultKey}` : null, song.timeSignature, song.tempo ? `${song.tempo} BPM` : null]
-                          .filter(Boolean)
-                          .join(" | ") || "No metadata"}
-                      </td>
-                      <td className="px-4 py-3 text-ink-500">{song.authorText || "Unknown"}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex justify-end gap-2">
-                          <Link
-                            href={`/songs/${song.id}`}
-                            className="inline-flex items-center justify-center rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-ink-700 hover:bg-zinc-100"
-                          >
-                            Detail
-                          </Link>
-                          {isAdmin && (
-                            <Link
-                              href={`/songs/${song.id}/editor`}
-                              className="inline-flex items-center justify-center rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-ink-700 hover:bg-zinc-100"
-                            >
-                              Editor
-                            </Link>
-                          )}
-                          <Link
-                            href={`/songs/${song.id}/preview`}
-                            className="inline-flex items-center justify-center rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-ink-700 hover:bg-zinc-100"
-                          >
-                            Preview
-                          </Link>
-                          {isAdmin && (
-                            <>
-                              <Button type="button" onClick={() => startEdit(song)}>
-                                Edit
-                              </Button>
-                              <Button type="button" variant="danger" onClick={() => void handleDelete(song)}>
-                                Delete
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
+      </Modal>
     </section>
   );
 }

@@ -3,6 +3,7 @@ package song
 import (
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -85,8 +86,21 @@ func (h *Handler) List(c *gin.Context) {
 	bookCode := c.Query("bookCode")
 	title := c.Query("title")
 	songNumber := c.Query("songNumber")
+	
+	pageStr := c.Query("page")
+	limitStr := c.Query("limit")
+	
+	page := 1
+	if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+		page = p
+	}
+	
+	limit := 50
+	if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
+		limit = l
+	}
 
-	query := h.db.Preload("SongBook")
+	query := h.db.Model(&Song{})
 
 	if bookCode != "" {
 		query = query.Joins("JOIN song_books ON songs.song_book_id = song_books.id").
@@ -99,9 +113,15 @@ func (h *Handler) List(c *gin.Context) {
 		query = query.Where("songs.song_number = ?", songNumber)
 	}
 
+	var totalCount int64
+	if err := query.Count(&totalCount).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, api.Failed(http.StatusInternalServerError, err.Error()))
+		return
+	}
+
 	var songs []Song
-	// Mimic Java ordering (usually by song_number or ID)
-	if err := query.Order("songs.song_number ASC").Find(&songs).Error; err != nil {
+	offset := (page - 1) * limit
+	if err := query.Preload("SongBook").Order("songs.song_number ASC").Offset(offset).Limit(limit).Find(&songs).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, api.Failed(http.StatusInternalServerError, err.Error()))
 		return
 	}
@@ -111,7 +131,12 @@ func (h *Handler) List(c *gin.Context) {
 		responses[i] = s.ToResponse()
 	}
 
-	c.JSON(http.StatusOK, api.Success(responses))
+	c.JSON(http.StatusOK, api.Success(api.PaginatedData[SongResponse]{
+		Items:      responses,
+		TotalCount: totalCount,
+		Page:       page,
+		Limit:      limit,
+	}))
 }
 
 func (h *Handler) Get(c *gin.Context) {

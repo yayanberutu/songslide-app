@@ -1,4 +1,4 @@
-import { apiRequest } from "@/lib/api-client";
+import { apiRequest, PaginatedData } from "@/lib/api-client";
 
 export type SongBook = {
   id: string;
@@ -55,6 +55,8 @@ export type SongSearchParams = {
   bookCode?: string;
   title?: string;
   songNumber?: string;
+  page?: number;
+  limit?: number;
 };
 
 export function listSongBooks() {
@@ -92,9 +94,15 @@ export function listSongs(params: SongSearchParams = {}) {
   if (params.songNumber) {
     searchParams.set("songNumber", params.songNumber);
   }
+  if (params.page !== undefined) {
+    searchParams.set("page", params.page.toString());
+  }
+  if (params.limit !== undefined) {
+    searchParams.set("limit", params.limit.toString());
+  }
 
   const query = searchParams.toString();
-  return apiRequest<Song[]>(`/api/songs${query ? `?${query}` : ""}`);
+  return apiRequest<PaginatedData<Song>>(`/api/songs${query ? `?${query}` : ""}`);
 }
 
 export function getSong(id: string) {
