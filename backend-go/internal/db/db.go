@@ -38,6 +38,7 @@ func InitDB() {
 		log.Printf("Failed to auto-migrate User table: %v", err)
 	} else {
 		seedAdminUser()
+		seedMultimediaUser()
 	}
 }
 
@@ -69,6 +70,30 @@ func seedAdminUser() {
 			log.Printf("Failed to create default admin user: %v", err)
 		} else {
 			log.Printf("Successfully seeded default admin user (username: %s)", adminUsername)
+		}
+	}
+}
+
+func seedMultimediaUser() {
+	var count int64
+	DB.Model(&user.User{}).Where("role = ?", user.RoleMultimedia).Count(&count)
+	if count == 0 {
+		hash, err := user.HashPassword("multimedia123")
+		if err != nil {
+			log.Printf("Failed to hash default multimedia password: %v", err)
+			return
+		}
+
+		mm := user.User{
+			Username:     "multimedia",
+			PasswordHash: hash,
+			Role:         user.RoleMultimedia,
+		}
+
+		if err := DB.Create(&mm).Error; err != nil {
+			log.Printf("Failed to create default multimedia user: %v", err)
+		} else {
+			log.Printf("Successfully seeded default multimedia user (username: multimedia)")
 		}
 	}
 }

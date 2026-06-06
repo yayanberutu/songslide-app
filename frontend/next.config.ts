@@ -6,12 +6,12 @@ const nextConfig: NextConfig = {
     const backendBaseUrl =
       process.env.BACKEND_INTERNAL_URL ??
       process.env.NEXT_PUBLIC_API_BASE_URL ??
-      "http://localhost:8080";
+      "http://localhost:8080/api";
 
     return [
       {
         source: "/backend-api/:path*",
-        destination: `${backendBaseUrl.replace(/\/$/, "")}/api/:path*`
+        destination: `${backendBaseUrl.replace(/\/$/, "")}/:path*`
       }
     ];
   }
