@@ -15,6 +15,10 @@ export type SongExportRequest = {
     showNotation: boolean;
     slideSize: "LAYOUT_WIDE";
     textSizePreset: ExportTextSizePreset;
+    customLayout?: {
+      beatsPerLine: number;
+      linesPerPage: number;
+    };
   };
 };
 
@@ -56,6 +60,10 @@ export type MultipleSongExportRequest = {
     showNotation: boolean;
     slideSize: "LAYOUT_WIDE";
     textSizePreset: ExportTextSizePreset;
+    customLayout?: {
+      beatsPerLine: number;
+      linesPerPage: number;
+    };
   };
   items: MultipleSongExportItem[];
 };

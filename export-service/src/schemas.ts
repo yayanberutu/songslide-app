@@ -22,12 +22,18 @@ export const exportSlideSchema = z
   })
   .strict();
 
+const customLayoutSchema = z.object({
+  beatsPerLine: z.number().int().positive(),
+  linesPerPage: z.number().int().positive()
+}).strict();
+
 export const exportLayoutSchema = z
   .object({
     theme: z.enum(["LIGHT", "DARK"]),
     showNotation: z.boolean(),
     slideSize: z.enum(["LAYOUT_WIDE", "LAYOUT_4X3", "16:9", "4:3"]),
-    textSizePreset: z.enum(["SMALL", "MEDIUM", "LARGE"]).default("MEDIUM")
+    textSizePreset: z.enum(["SMALL", "MEDIUM", "LARGE"]).default("MEDIUM"),
+    customLayout: customLayoutSchema.optional()
   })
   .strict();
 

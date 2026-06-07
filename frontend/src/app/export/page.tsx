@@ -30,6 +30,10 @@ export default function ExportPage() {
   const [textSizePreset, setTextSizePreset] = useState<ExportTextSizePreset>("MEDIUM");
   const [showNotation, setShowNotation] = useState(true);
 
+  const [isCustomLayout, setIsCustomLayout] = useState(false);
+  const [beatsPerLine, setBeatsPerLine] = useState(16);
+  const [linesPerPage, setLinesPerPage] = useState(2);
+
   const [books, setBooks] = useState<SongBook[]>([]);
   const [selectedBookCode, setSelectedBookCode] = useState("");
 
@@ -210,7 +214,13 @@ export default function ExportPage() {
           theme,
           showNotation,
           slideSize: "LAYOUT_WIDE",
-          textSizePreset
+          textSizePreset,
+          ...(isCustomLayout ? {
+            customLayout: {
+              beatsPerLine,
+              linesPerPage
+            }
+          } : {})
         },
         items
       });
@@ -427,6 +437,37 @@ export default function ExportPage() {
               />
               Show notation
             </label>
+
+            <label className="flex items-center gap-2 text-sm font-medium text-ink-700 pt-2 border-t border-zinc-100">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-zinc-300 text-ink-950"
+                checked={isCustomLayout}
+                onChange={(e) => setIsCustomLayout(e.target.checked)}
+              />
+              Use custom layout (Reflow)
+            </label>
+
+            {isCustomLayout && (
+              <div className="grid gap-4 grid-cols-2 pt-2">
+                <Field label="Beats / Line">
+                  <TextInput
+                    type="number"
+                    min={1}
+                    value={beatsPerLine}
+                    onChange={(e) => setBeatsPerLine(parseInt(e.target.value) || 16)}
+                  />
+                </Field>
+                <Field label="Lines / Page">
+                  <TextInput
+                    type="number"
+                    min={1}
+                    value={linesPerPage}
+                    onChange={(e) => setLinesPerPage(parseInt(e.target.value) || 2)}
+                  />
+                </Field>
+              </div>
+            )}
           </div>
 
           <div className="rounded-md border border-zinc-200 bg-white p-5 space-y-4">

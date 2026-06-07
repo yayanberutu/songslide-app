@@ -7,6 +7,7 @@ import {
   type RenderedLine
 } from "./notation-renderer";
 import type { ExportPayload } from "./schemas";
+import { reflowLines } from "./reflow-engine";
 
 type SlidePayload = ExportPayload["slides"][number];
 type SlideLinePayload = SlidePayload["lines"][number];
@@ -192,9 +193,21 @@ export function buildExportRenderPlan(
     };
     frame ??= slideFrame;
 
-    const visibleLines = collectVisibleLines(slide.lines, payload.layout.showNotation);
+    let slideLines = slide.lines;
+    if (payload.layout.customLayout) {
+      slideLines = reflowLines(slideLines, payload.layout.customLayout.beatsPerLine);
+    }
+
+    const visibleLines = collectVisibleLines(slideLines, payload.layout.showNotation);
     const plannedLines = visibleLines.map((line) => planVisibleLine(line, contentWidth, tokens, notationTheme));
-    const pagedLines = paginateLines(plannedLines, bodyHeight, tokens.bodyGap);
+    
+    // If customLayout is set, chunk by linesPerPage instead of bodyHeight
+    let pagedLines: PlannedExportLine[][] = [];
+    if (payload.layout.customLayout) {
+      pagedLines = paginateLinesByCount(plannedLines, payload.layout.customLayout.linesPerPage);
+    } else {
+      pagedLines = paginateLines(plannedLines, bodyHeight, tokens.bodyGap);
+    }
 
     if (pagedLines.length === 0) {
       pages.push({
@@ -424,6 +437,28 @@ function paginateLines(
 
     currentPage.push(line);
     usedHeight += nextHeight;
+  });
+
+  if (currentPage.length > 0) {
+    pages.push(currentPage);
+  }
+
+  return pages;
+}
+
+function paginateLinesByCount(
+  lines: readonly PlannedExportLine[],
+  linesPerPage: number
+): PlannedExportLine[][] {
+  const pages: PlannedExportLine[][] = [];
+  let currentPage: PlannedExportLine[] = [];
+
+  lines.forEach((line) => {
+    if (currentPage.length >= linesPerPage) {
+      pages.push(currentPage);
+      currentPage = [];
+    }
+    currentPage.push(line);
   });
 
   if (currentPage.length > 0) {
