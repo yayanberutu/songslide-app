@@ -44,7 +44,7 @@ const emptyFilters: SongSearchParams = {
   title: "",
   songNumber: "",
   page: 1,
-  limit: 50
+  limit: 20
 };
 
 export function SongsManager() {
@@ -186,7 +186,7 @@ export function SongsManager() {
     }
   }
 
-  const totalPages = Math.ceil(totalCount / (filters.limit || 50));
+  const totalPages = Math.ceil(totalCount / (filters.limit || 20));
 
   return (
     <section className="space-y-6">
@@ -439,8 +439,8 @@ function emptyToNull(value: string) {
   return trimmed.length === 0 ? null : trimmed;
 }
 
-function emptyToUndefined(value: string) {
-  const trimmed = value.trim();
+function emptyToUndefined(value?: string | null) {
+  const trimmed = value?.trim() ?? "";
   return trimmed.length === 0 ? undefined : trimmed;
 }
 

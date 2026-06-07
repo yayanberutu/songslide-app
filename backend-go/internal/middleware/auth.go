@@ -97,7 +97,7 @@ func ReadOnlyForMultimedia() gin.HandlerFunc {
 
 			// Explicitly allow exports POST endpoints for multimedia
 			path := c.Request.URL.Path
-			if strings.Contains(path, "/exports") {
+			if strings.Contains(path, "exports") {
 				c.Next()
 				return
 			}

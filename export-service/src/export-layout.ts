@@ -65,7 +65,7 @@ const PRESET_CONFIG = {
   },
   LARGE: {
     renderScale: 1.32,
-    sidePadding: 64,
+    sidePadding: 40,
     topPadding: 58,
     bottomPadding: 44,
     titleFontSize: 42,
@@ -201,10 +201,46 @@ export function buildExportRenderPlan(
     const visibleLines = collectVisibleLines(slideLines, payload.layout.showNotation);
     const plannedLines = visibleLines.map((line) => planVisibleLine(line, contentWidth, tokens, notationTheme));
     
-    // If customLayout is set, chunk by linesPerPage instead of bodyHeight
+    // If customLayout is set, chunk by linesPerPage and auto-scale to fill bounds
     let pagedLines: PlannedExportLine[][] = [];
     if (payload.layout.customLayout) {
       pagedLines = paginateLinesByCount(plannedLines, payload.layout.customLayout.linesPerPage);
+      
+      pagedLines = pagedLines.map(pageLines => {
+        let totalNaturalHeight = 0;
+        let maxNaturalWidth = 0;
+        pageLines.forEach(l => {
+          if (l.kind === "notation") {
+            totalNaturalHeight += l.naturalHeight;
+            maxNaturalWidth = Math.max(maxNaturalWidth, l.naturalWidth);
+          } else {
+            totalNaturalHeight += l.displayHeight / tokens.notationScale;
+          }
+        });
+        
+        if (maxNaturalWidth === 0 || totalNaturalHeight === 0) return pageLines;
+
+        const totalGaps = Math.max(0, pageLines.length - 1) * tokens.bodyGap;
+        const availableHeight = bodyHeight - totalGaps;
+        
+        const scaleY = availableHeight / totalNaturalHeight;
+        const scaleX = contentWidth / maxNaturalWidth;
+        const customScale = Math.min(scaleX, scaleY);
+        
+        return pageLines.map(l => {
+          if (l.kind === "notation") {
+            return {
+              ...l,
+              displayWidth: roundLayoutValue(l.naturalWidth * customScale),
+              displayHeight: roundLayoutValue(l.naturalHeight * customScale)
+            };
+          }
+          return {
+            ...l,
+            displayHeight: roundLayoutValue((l.displayHeight / tokens.notationScale) * customScale)
+          };
+        });
+      });
     } else {
       pagedLines = paginateLines(plannedLines, bodyHeight, tokens.bodyGap);
     }
@@ -252,7 +288,7 @@ export function createLayoutTokens(
   textSizePreset: ExportPayload["layout"]["textSizePreset"] = "MEDIUM"
 ): ExportLayoutTokens {
   const surfaceScale = Math.min(surface.width / BASE_SURFACE_WIDTH, surface.height / BASE_SURFACE_HEIGHT);
-  const preset = PRESET_CONFIG[textSizePreset];
+  const preset = PRESET_CONFIG[textSizePreset === "CUSTOM" ? "LARGE" : textSizePreset];
   const scale = surfaceScale;
   const renderMetrics = createRenderMetrics(preset.renderScale * surfaceScale);
 
@@ -285,7 +321,8 @@ export function createLayoutTokens(
 export function layoutLinePositions(
   lines: readonly PlannedExportLine[],
   bodyTop: number,
-  gap: number
+  gap: number,
+  bodyHeight?: number
 ): Array<{ line: PlannedExportLine; y: number }> {
   let cursorY = bodyTop;
 
@@ -374,7 +411,8 @@ function planVisibleLine(
       notation: line.notation,
       lyric: line.lyric,
       theme: notationTheme,
-      metrics: tokens.renderMetrics
+      metrics: tokens.renderMetrics,
+      targetWidth: contentWidth / tokens.notationScale
     });
     return planNotationLine(rendered, Boolean(line.lyric), contentWidth, tokens.notationScale);
   }

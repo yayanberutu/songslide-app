@@ -42,8 +42,12 @@ export function reflowLines(lines: SlideLinePayload[], beatsPerLine: number): Sl
   for (let i = 0; i < stream.length; i++) {
     const item = stream[i];
     const isBeat = item.token.type !== "BAR" && item.token.type !== "DOUBLE_BAR";
+    const isExtension = item.token.type === "EXTENSION";
+    const isBarLine = !isBeat;
 
-    if (isBeat && currentBeats >= beatsPerLine) {
+    // We break BEFORE adding the current item if we've reached the limit
+    // AND the current item is NOT an extension or bar line that should stick to the previous beat.
+    if (currentBeats >= beatsPerLine && !isExtension && !isBarLine) {
       reflowedLines.push({
         notation: currentNotation.join(" "),
         lyric: currentLyric.length > 0 ? currentLyric.join(" ") : undefined
@@ -55,11 +59,7 @@ export function reflowLines(lines: SlideLinePayload[], beatsPerLine: number): Sl
 
     currentNotation.push(item.sourceRaw);
     if (item.syllables.length > 0) {
-      // Ensure we preserve multi-syllable spacing within a single token if necessary
       currentLyric.push(item.syllables.join("-"));
-    } else if (item.token.lyricSlots > 0) {
-      // Pad missing syllables with empty string to maintain alignment? 
-      // Actually, notation-renderer handles missing syllables gracefully.
     }
 
     if (isBeat) {

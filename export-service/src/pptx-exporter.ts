@@ -47,7 +47,7 @@ export async function generatePptx(payload: ExportPayload): Promise<Buffer> {
     const { frame, tokens } = renderPlan;
     const subtitleY = frame.headerTop + tokens.titleLineHeight + tokens.titleGap;
     const metadataY = subtitleY + tokens.subtitleLineHeight + tokens.subtitleGap;
-    const linePositions = layoutLinePositions(slidePage.lines, frame.bodyTop, tokens.bodyGap);
+    const linePositions = layoutLinePositions(slidePage.lines, frame.bodyTop, tokens.bodyGap, frame.bodyHeight);
 
     slide.background = { color: colors.background };
 
@@ -105,8 +105,9 @@ export async function generatePptx(payload: ExportPayload): Promise<Buffer> {
 
     linePositions.forEach(({ line, y }) => {
       if (line.kind === "notation") {
+        const lineX = frame.contentX;
         slide.addImage({
-          x: pxToUnits(frame.contentX, pxToInches),
+          x: pxToUnits(lineX, pxToInches),
           y: pxToUnits(y, pxToInches),
           w: pxToUnits(line.displayWidth, pxToInches),
           h: pxToUnits(line.displayHeight, pxToInches),

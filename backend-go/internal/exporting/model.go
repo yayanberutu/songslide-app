@@ -29,10 +29,16 @@ type Line struct {
 }
 
 type Layout struct {
-	Theme          string `json:"theme"`
-	ShowNotation   bool   `json:"showNotation"`
-	SlideSize      string `json:"slideSize"`
-	TextSizePreset string `json:"textSizePreset"`
+	Theme          string        `json:"theme"`
+	ShowNotation   bool          `json:"showNotation"`
+	SlideSize      string        `json:"slideSize"`
+	TextSizePreset string        `json:"textSizePreset"`
+	CustomLayout   *CustomLayout `json:"customLayout,omitempty"`
+}
+
+type CustomLayout struct {
+	BeatsPerLine int `json:"beatsPerLine"`
+	LinesPerPage int `json:"linesPerPage"`
 }
 
 type Output struct {
@@ -42,12 +48,13 @@ type Output struct {
 }
 
 type ExportLayoutRequest struct {
-	Theme          string `json:"theme"`
-	ShowNotation   *bool  `json:"showNotation"`
-	SlideSize      string `json:"slideSize"`
-	TextSizePreset string `json:"textSizePreset"`
-	ImageWidth     *int   `json:"imageWidth"`
-	ImageHeight    *int   `json:"imageHeight"`
+	Theme          string        `json:"theme"`
+	ShowNotation   *bool         `json:"showNotation"`
+	SlideSize      string        `json:"slideSize"`
+	TextSizePreset string        `json:"textSizePreset"`
+	CustomLayout   *CustomLayout `json:"customLayout,omitempty"`
+	ImageWidth     *int          `json:"imageWidth"`
+	ImageHeight    *int          `json:"imageHeight"`
 }
 
 type SongExport struct {

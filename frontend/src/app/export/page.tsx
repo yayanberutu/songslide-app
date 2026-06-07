@@ -30,7 +30,7 @@ export default function ExportPage() {
   const [textSizePreset, setTextSizePreset] = useState<ExportTextSizePreset>("MEDIUM");
   const [showNotation, setShowNotation] = useState(true);
 
-  const [isCustomLayout, setIsCustomLayout] = useState(false);
+  const isCustomLayout = textSizePreset === "CUSTOM";
   const [beatsPerLine, setBeatsPerLine] = useState(16);
   const [linesPerPage, setLinesPerPage] = useState(2);
 
@@ -45,6 +45,7 @@ export default function ExportPage() {
 
   const [availableVerses, setAvailableVerses] = useState<string[]>([]);
   const [selectedVerses, setSelectedVerses] = useState<string[]>([]);
+  const [hasRefrain, setHasRefrain] = useState(false);
   const [refrainMode, setRefrainMode] = useState<ExportRefrainMode>("NONE");
 
   const [items, setItems] = useState<MultipleSongExportItem[]>([]);
@@ -69,8 +70,8 @@ export default function ExportPage() {
       setIsDropdownOpen(false);
       return;
     }
-    listSongs({ bookCode: selectedBookCode }).then((data) => {
-      setSongs(data.sort((a, b) => {
+    listSongs({ bookCode: selectedBookCode, limit: 9999 }).then((data) => {
+      setSongs(data.items.sort((a, b) => {
         const numA = parseInt(a.songNumber.replace(/\D/g, ''), 10) || 0;
         const numB = parseInt(b.songNumber.replace(/\D/g, ''), 10) || 0;
         return numA - numB;
@@ -91,10 +92,16 @@ export default function ExportPage() {
       const verses = collectAvailableVerses(arrangement.contentJson);
       setAvailableVerses(verses);
       setSelectedVerses(verses.length > 0 ? [verses[0]] : []);
+      
+      const refrainExists = (arrangement.contentJson?.sections || []).some((s: { type: string }) => s.type === "REFRAIN");
+      setHasRefrain(refrainExists);
+      setRefrainMode(refrainExists ? "AFTER_EACH_VERSE" : "NONE");
     }).catch((err) => {
       console.error(err);
       setAvailableVerses([]);
       setSelectedVerses([]);
+      setHasRefrain(false);
+      setRefrainMode("NONE");
     });
   }, [selectedBookCode, selectedSongNumber, songs]);
 
@@ -343,10 +350,18 @@ export default function ExportPage() {
 
                 <div>
                   <Field label="Refrain Mode">
-                    <SelectInput value={refrainMode} onChange={(e) => setRefrainMode(e.target.value as ExportRefrainMode)}>
+                    <SelectInput 
+                      value={refrainMode} 
+                      onChange={(e) => setRefrainMode(e.target.value as ExportRefrainMode)}
+                      disabled={!hasRefrain}
+                    >
                       <option value="NONE">None</option>
-                      <option value="ONCE_AFTER_ALL_VERSES">Once after all verses</option>
-                      <option value="AFTER_EACH_VERSE">After each verse</option>
+                      {hasRefrain && (
+                        <>
+                          <option value="ONCE_AFTER_ALL_VERSES">Once after all verses</option>
+                          <option value="AFTER_EACH_VERSE">After each verse</option>
+                        </>
+                      )}
                     </SelectInput>
                   </Field>
                 </div>
@@ -425,6 +440,7 @@ export default function ExportPage() {
                 <option value="SMALL">Small / compact</option>
                 <option value="MEDIUM">Medium / standard</option>
                 <option value="LARGE">Large / large room</option>
+                <option value="CUSTOM">Custom (Reflow)</option>
               </SelectInput>
             </Field>
 
@@ -436,16 +452,6 @@ export default function ExportPage() {
                 onChange={(e) => setShowNotation(e.target.checked)}
               />
               Show notation
-            </label>
-
-            <label className="flex items-center gap-2 text-sm font-medium text-ink-700 pt-2 border-t border-zinc-100">
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border-zinc-300 text-ink-950"
-                checked={isCustomLayout}
-                onChange={(e) => setIsCustomLayout(e.target.checked)}
-              />
-              Use custom layout (Reflow)
             </label>
 
             {isCustomLayout && (

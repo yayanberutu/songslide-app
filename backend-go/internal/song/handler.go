@@ -100,11 +100,10 @@ func (h *Handler) List(c *gin.Context) {
 		limit = l
 	}
 
-	query := h.db.Model(&Song{})
+	query := h.db.Model(&Song{}).Joins("JOIN song_books ON songs.song_book_id = song_books.id")
 
 	if bookCode != "" {
-		query = query.Joins("JOIN song_books ON songs.song_book_id = song_books.id").
-			Where("song_books.code = ?", bookCode)
+		query = query.Where("song_books.code = ?", bookCode)
 	}
 	if title != "" {
 		query = query.Where("songs.title ILIKE ?", "%"+title+"%")
@@ -121,7 +120,11 @@ func (h *Handler) List(c *gin.Context) {
 
 	var songs []Song
 	offset := (page - 1) * limit
-	if err := query.Preload("SongBook").Order("songs.song_number ASC").Offset(offset).Limit(limit).Find(&songs).Error; err != nil {
+	if err := query.Preload("SongBook").
+		Order("song_books.code ASC").
+		Order("NULLIF(regexp_replace(songs.song_number, '\\D', '', 'g'), '')::int ASC").
+		Order("songs.song_number ASC").
+		Offset(offset).Limit(limit).Find(&songs).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, api.Failed(http.StatusInternalServerError, err.Error()))
 		return
 	}

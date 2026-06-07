@@ -95,7 +95,7 @@ function renderSlideHtml(
 ): string {
   const colors = getThemeColors(theme);
   const { frame, tokens } = renderPlan;
-  const linePositions = layoutLinePositions(slidePage.lines, frame.bodyTop, tokens.bodyGap);
+  const linePositions = layoutLinePositions(slidePage.lines, frame.bodyTop, tokens.bodyGap, frame.bodyHeight);
   const subtitleY = frame.headerTop + tokens.titleLineHeight + tokens.titleGap;
   const metadataY = subtitleY + tokens.subtitleLineHeight + tokens.subtitleGap;
 
@@ -237,7 +237,7 @@ function renderLineHtml(
   contentWidth: number
 ): string {
   if (line.kind === "notation") {
-    return `<article class="line" style="top:${y}px;height:${line.displayHeight}px;">
+    return `<article class="line" style="top:${y}px;height:${line.displayHeight}px;justify-content:flex-start;">
       <div class="notation-frame" style="width:${Math.min(line.displayWidth, contentWidth)}px;height:${line.displayHeight}px;">${line.svg}</div>
     </article>`;
   }

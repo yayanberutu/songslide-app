@@ -421,7 +421,7 @@ func normalizeLayout(req ExportLayoutRequest) (Layout, error) {
 	if textSizePreset == "" {
 		textSizePreset = "MEDIUM"
 	}
-	if textSizePreset != "SMALL" && textSizePreset != "MEDIUM" && textSizePreset != "LARGE" {
+	if textSizePreset != "SMALL" && textSizePreset != "MEDIUM" && textSizePreset != "LARGE" && textSizePreset != "CUSTOM" {
 		return Layout{}, fmt.Errorf("layout.textSizePreset is not supported")
 	}
 
@@ -430,6 +430,7 @@ func normalizeLayout(req ExportLayoutRequest) (Layout, error) {
 		ShowNotation:   showNotation,
 		SlideSize:      slideSize,
 		TextSizePreset: textSizePreset,
+		CustomLayout:   req.CustomLayout,
 	}, nil
 }
 
@@ -459,13 +460,18 @@ func makeOutput(format ExportFormat, req ExportLayoutRequest, requestedFileName 
 }
 
 func optionsJson(layout Layout, output Output, requestedFileName string, items []map[string]interface{}) json.RawMessage {
+	layoutOpts := map[string]interface{}{
+		"theme":          layout.Theme,
+		"showNotation":   layout.ShowNotation,
+		"slideSize":      layout.SlideSize,
+		"textSizePreset": layout.TextSizePreset,
+	}
+	if layout.CustomLayout != nil {
+		layoutOpts["customLayout"] = layout.CustomLayout
+	}
+
 	opts := map[string]interface{}{
-		"layout": map[string]interface{}{
-			"theme":          layout.Theme,
-			"showNotation":   layout.ShowNotation,
-			"slideSize":      layout.SlideSize,
-			"textSizePreset": layout.TextSizePreset,
-		},
+		"layout": layoutOpts,
 		"output": map[string]interface{}{
 			"fileName": output.FileName,
 		},

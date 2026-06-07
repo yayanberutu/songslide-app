@@ -134,6 +134,7 @@ export type RenderLineOptions = {
   lyric?: string | null;
   theme: Pick<RenderTheme, "notationText" | "lyricText">;
   metrics?: RenderMetrics;
+  targetWidth?: number;
 };
 
 export type RenderedLine = {
@@ -173,6 +174,16 @@ export function parseNotationLine(input: string | null | undefined): NotationPar
     tokens: result.tokens,
     issues: result.issues
   };
+}
+
+export function countGaps(tokens: readonly NotationToken[]): number {
+  let gaps = Math.max(0, tokens.length - 1);
+  for (const token of tokens) {
+    if (token.type === "BEAM" || token.type === "SLUR") {
+      gaps += countGaps(token.children);
+    }
+  }
+  return gaps;
 }
 
 export function countNotationLyricSlots(tokens: readonly NotationToken[]) {
@@ -216,18 +227,18 @@ export function parseLyricSyllables(input: string | null | undefined): string[] 
 export function createRenderMetrics(scale = 1): RenderMetrics {
   return {
     scale,
-    noteWidth: 28 * scale,
-    restWidth: 22 * scale,
-    extensionWidth: 18 * scale,
-    barWidth: 12 * scale,
-    tokenGap: 8 * scale,
+    noteWidth: 22 * scale,
+    restWidth: 18 * scale,
+    extensionWidth: 14 * scale,
+    barWidth: 8 * scale,
+    tokenGap: 4 * scale,
     notationHeight: 54 * scale,
     lyricHeight: 28 * scale,
     baselineY: 29 * scale,
     topDotY: 13 * scale,
     topDotYBeamed: 16 * scale,
     bottomDotY: 40 * scale,
-    extensionDotY: 36 * scale,
+    extensionDotY: 29 * scale,
     beamLevelOneY: 8 * scale,
     beamLevelTwoY: 13 * scale,
     slurBaseY: 46 * scale,
@@ -235,8 +246,8 @@ export function createRenderMetrics(scale = 1): RenderMetrics {
     noteFontSize: 24 * scale,
     restFontSize: 22 * scale,
     lyricFontSize: 22 * scale,
-    lyricHorizontalPadding: 8 * scale,
-    lyricMinGap: 6 * scale,
+    lyricHorizontalPadding: 0,
+    lyricMinGap: 0,
     dotRadius: Math.max(1.2, 1.4 * scale),
     plainNotationFontSize: 22 * scale
   };
@@ -257,16 +268,41 @@ export function renderNotationLineSvg(options: RenderLineOptions): RenderedLine 
     };
   }
 
-  const topLevel = renderTokenSequence(parsed.tokens, 0, 0, options.theme, metrics);
   const lyricSyllables = parseLyricSyllables(options.lyric);
+  const slotTokens = collectLyricSlotTokens(parsed.tokens);
+  const syllableMap = new Map<NotationToken, string>();
+  
+  slotTokens.forEach((token, index) => {
+    if (index < lyricSyllables.length) {
+      if (token.type === "SLUR") {
+        const firstNote = findFirstRenderableNote(token.children);
+        if (firstNote) syllableMap.set(firstNote, lyricSyllables[index]);
+      } else {
+        syllableMap.set(token, lyricSyllables[index]);
+      }
+    }
+  });
+
+  let topLevel = renderTokenSequence(parsed.tokens, 0, 0, options.theme, metrics, syllableMap);
+  let actualMetrics = metrics;
+
+  if (options.targetWidth && topLevel.width < options.targetWidth) {
+    const gaps = countGaps(parsed.tokens);
+    if (gaps > 0) {
+      const extraGap = (options.targetWidth - topLevel.width) / gaps;
+      actualMetrics = { ...metrics, tokenGap: metrics.tokenGap + extraGap };
+      topLevel = renderTokenSequence(parsed.tokens, 0, 0, options.theme, actualMetrics, syllableMap);
+    }
+  }
+
   const hasLyric = lyricSyllables.length > 0;
-  const height = hasLyric ? metrics.notationHeight + metrics.lyricHeight : metrics.notationHeight;
+  const height = hasLyric ? actualMetrics.notationHeight + actualMetrics.lyricHeight : actualMetrics.notationHeight;
   const lyricPlacements = hasLyric
     ? resolveLyricPlacements(
         topLevel.slotAnchors,
         lyricSyllables.slice(0, topLevel.slotAnchors.length),
         Math.max(topLevel.width, 1),
-        metrics
+        actualMetrics
       )
     : [];
   const width = Math.max(
@@ -564,7 +600,8 @@ function renderTokenSequence(
   startX: number,
   beamDepth: number,
   theme: RenderTheme,
-  metrics: RenderMetrics
+  metrics: RenderMetrics,
+  syllables?: Map<NotationToken, string>
 ): RenderedToken {
   let cursorX = startX;
   const markup: string[] = [];
@@ -572,13 +609,26 @@ function renderTokenSequence(
   let firstNoteAnchor: number | null = null;
 
   tokens.forEach((token, index) => {
-    const rendered = renderToken(token, cursorX, beamDepth, theme, metrics);
+    let extraPadding = 0;
+    if (syllables) {
+      const syllable = syllables.get(token);
+      if (syllable) {
+        const textWidth = estimateLyricTextWidthWithMetrics(syllable, metrics);
+        const baseWidth = token.type === "NOTE" ? metrics.noteWidth : (token.type === "SLUR" ? metrics.noteWidth : 0);
+        if (textWidth > baseWidth + metrics.tokenGap) {
+          extraPadding = textWidth - (baseWidth + metrics.tokenGap);
+        }
+      }
+    }
+
+    cursorX += extraPadding / 2;
+    const rendered = renderToken(token, cursorX, beamDepth, theme, metrics, syllables);
     markup.push(...rendered.markup);
     slotAnchors.push(...rendered.slotAnchors);
     if (firstNoteAnchor === null && rendered.firstNoteAnchor !== null) {
       firstNoteAnchor = rendered.firstNoteAnchor;
     }
-    cursorX += rendered.width;
+    cursorX += rendered.width + extraPadding / 2;
     if (index < tokens.length - 1) {
       cursorX += metrics.tokenGap;
     }
@@ -597,7 +647,8 @@ function renderToken(
   x: number,
   beamDepth: number,
   theme: RenderTheme,
-  metrics: RenderMetrics
+  metrics: RenderMetrics,
+  syllables?: Map<NotationToken, string>
 ): RenderedToken {
   switch (token.type) {
     case "NOTE":
@@ -611,9 +662,9 @@ function renderToken(
     case "EXTENSION":
       return renderExtensionToken(x, theme, metrics);
     case "SLUR":
-      return renderSlurToken(token, x, beamDepth, theme, metrics);
+      return renderSlurToken(token, x, beamDepth, theme, metrics, syllables);
     case "BEAM":
-      return renderBeamToken(token, x, beamDepth, theme, metrics);
+      return renderBeamToken(token, x, beamDepth, theme, metrics, syllables);
     default:
       return {
         width: 0,
@@ -703,7 +754,7 @@ function renderBarToken(x: number, theme: RenderTheme, metrics: RenderMetrics): 
   return {
     width: metrics.barWidth,
     markup: [
-      `<line x1="${centerX}" y1="${18 * metrics.scale}" x2="${centerX}" y2="${40 * metrics.scale}" stroke="#${theme.notationText}" stroke-width="${1.5 * metrics.scale}" stroke-linecap="round" opacity="0.8" />`
+      `<line x1="${centerX}" y1="${12 * metrics.scale}" x2="${centerX}" y2="${29 * metrics.scale}" stroke="#${theme.notationText}" stroke-width="${1.5 * metrics.scale}" stroke-linecap="round" opacity="0.8" />`
     ],
     slotAnchors: [],
     firstNoteAnchor: null
@@ -717,8 +768,8 @@ function renderDoubleBarToken(x: number, theme: RenderTheme, metrics: RenderMetr
   return {
     width,
     markup: [
-      `<line x1="${leftX}" y1="${18 * metrics.scale}" x2="${leftX}" y2="${40 * metrics.scale}" stroke="#${theme.notationText}" stroke-width="${1.5 * metrics.scale}" stroke-linecap="round" opacity="0.8" />`,
-      `<line x1="${rightX}" y1="${18 * metrics.scale}" x2="${rightX}" y2="${40 * metrics.scale}" stroke="#${theme.notationText}" stroke-width="${3 * metrics.scale}" stroke-linecap="round" opacity="0.8" />`
+      `<line x1="${leftX}" y1="${12 * metrics.scale}" x2="${leftX}" y2="${29 * metrics.scale}" stroke="#${theme.notationText}" stroke-width="${1.5 * metrics.scale}" stroke-linecap="round" opacity="0.8" />`,
+      `<line x1="${rightX}" y1="${12 * metrics.scale}" x2="${rightX}" y2="${29 * metrics.scale}" stroke="#${theme.notationText}" stroke-width="${3 * metrics.scale}" stroke-linecap="round" opacity="0.8" />`
     ],
     slotAnchors: [],
     firstNoteAnchor: null
@@ -742,9 +793,10 @@ function renderSlurToken(
   x: number,
   beamDepth: number,
   theme: RenderTheme,
-  metrics: RenderMetrics
+  metrics: RenderMetrics,
+  syllables?: Map<NotationToken, string>
 ): RenderedToken {
-  const children = renderTokenSequence(token.children, x, beamDepth, theme, metrics);
+  const children = renderTokenSequence(token.children, x, beamDepth, theme, metrics, syllables);
   const width = Math.max(children.width, metrics.noteWidth);
   const startX = x + 1;
   const endX = x + width - 1;
@@ -767,18 +819,24 @@ function renderBeamToken(
   x: number,
   beamDepth: number,
   theme: RenderTheme,
-  metrics: RenderMetrics
+  metrics: RenderMetrics,
+  syllables?: Map<NotationToken, string>
 ): RenderedToken {
   const nextBeamDepth = Math.min(beamDepth + 1, 2);
-  const children = renderTokenSequence(token.children, x, nextBeamDepth, theme, metrics);
+  const children = renderTokenSequence(token.children, x, nextBeamDepth, theme, metrics, syllables);
   const width = Math.max(children.width, metrics.noteWidth);
   const beamY = nextBeamDepth === 1 ? metrics.beamLevelOneY : metrics.beamLevelTwoY;
+  
+  const startX = children.firstNoteAnchor !== null ? children.firstNoteAnchor : x + 2 * metrics.scale;
+  // approximate the right anchor symmetrically
+  const offsetFromLeft = startX - x;
+  const endX = (x + width) - offsetFromLeft;
 
   return {
     width,
     markup: [
       ...children.markup,
-      `<line x1="${x + 2 * metrics.scale}" y1="${beamY}" x2="${x + width - 2 * metrics.scale}" y2="${beamY}" stroke="#${theme.notationText}" stroke-width="${2.2 * metrics.scale}" stroke-linecap="round" />`
+      `<line x1="${startX}" y1="${beamY}" x2="${endX}" y2="${beamY}" stroke="#${theme.notationText}" stroke-width="${2.2 * metrics.scale}" stroke-linecap="round" />`
     ],
     slotAnchors: children.slotAnchors,
     firstNoteAnchor: children.firstNoteAnchor
@@ -854,10 +912,7 @@ function resolveLyricPlacements(
     const width = estimateLyricTextWidthWithMetrics(text, metrics);
     const anchorX = anchors[index] ?? previousRight;
     const minCenter = width / 2;
-    const collisionCenter = previousRight > 0
-      ? previousRight + metrics.lyricMinGap + width / 2
-      : minCenter;
-    const centerX = Math.max(anchorX, minCenter, collisionCenter);
+    const centerX = Math.max(anchorX, minCenter);
     const left = centerX - width / 2;
     const right = centerX + width / 2;
     placements.push({
