@@ -3,6 +3,7 @@ package auth
 import (
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/yayanberutu/songslide/backend-go/internal/api"
@@ -59,6 +60,11 @@ func (h *Handler) Login(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, api.Failed(http.StatusInternalServerError, "Failed to generate token"))
 		return
 	}
+
+	now := time.Now()
+	u.LoginCount += 1
+	u.LastLoginAt = &now
+	h.db.Save(&u)
 
 	c.JSON(http.StatusOK, api.Success(LoginResponse{
 		Token: token,

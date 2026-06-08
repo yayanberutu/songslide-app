@@ -149,27 +149,21 @@ export function ArrangementEditor({ songId }: ArrangementEditorProps) {
         <div className="mt-2 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <h1 className="text-3xl font-semibold tracking-normal text-ink-950">
-              {song ? `${song.songBook.code} ${song.songNumber} - ${song.title}` : "Arrangement editor"}
+              {song ? `${song.songBook.code} ${song.songNumber} - ${song.title}` : "Editor Not Angka"}
             </h1>
             <p className="mt-3 max-w-3xl text-base leading-7 text-ink-700">
-              Edit numbered notation, verse lyrics, refrains, and text-only verses through visual controls.
+              Ketik not angka, lirik bait, lirik reff, atau teks tambahan menggunakan kontrol visual yang mudah digunakan.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Link
-              href={`/songs/${songId}`}
+              href={`/songs`}
               className="inline-flex items-center justify-center rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-ink-700 hover:bg-zinc-100"
             >
-              Song detail
-            </Link>
-            <Link
-              href={`/songs/${songId}/preview`}
-              className="inline-flex items-center justify-center rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-ink-700 hover:bg-zinc-100"
-            >
-              Preview
+              Kembali
             </Link>
             <Button variant="primary" type="button" disabled={saving} onClick={() => void saveContent()}>
-              {saving ? "Saving..." : "Save arrangement"}
+              {saving ? "Menyimpan..." : "Simpan Perubahan"}
             </Button>
           </div>
         </div>
@@ -180,15 +174,15 @@ export function ArrangementEditor({ songId }: ArrangementEditorProps) {
           <div className="rounded-md border border-zinc-200 bg-white p-4">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <h2 className="text-base font-semibold text-ink-950">Sections</h2>
+                <h2 className="text-base font-semibold text-ink-950">Bagian Lagu (Sections)</h2>
                 <p className="mt-1 text-sm text-ink-500">
-                  {sectionCounts.verse} verse, {sectionCounts.refrain} refrain, {sectionCounts.textOnly} text-only section.
+                  {sectionCounts.verse} bait, {sectionCounts.refrain} reff, {sectionCounts.textOnly} bait teks.
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <Button type="button" onClick={() => addSection("VERSE")}>Add verse</Button>
-                <Button type="button" onClick={() => addSection("REFRAIN")}>Add refrain</Button>
-                <Button type="button" onClick={() => addSection("TEXT_ONLY_VERSES")}>Add text-only verses</Button>
+                <Button type="button" onClick={() => addSection("VERSE")}>Tambah Bait (Not Angka)</Button>
+                <Button type="button" onClick={() => addSection("REFRAIN")}>Tambah Reff (Not Angka)</Button>
+                <Button type="button" onClick={() => addSection("TEXT_ONLY_VERSES")}>Tambah Bait (Hanya Teks)</Button>
               </div>
             </div>
           </div>

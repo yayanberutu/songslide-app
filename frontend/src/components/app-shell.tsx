@@ -6,12 +6,11 @@ import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 
 const navigationItems = [
-  { href: "/", label: "Dashboard", adminOnly: false },
-  { href: "/books", label: "Song Books", adminOnly: true },
-  { href: "/songs", label: "Songs", adminOnly: false },
-  { href: "/editor", label: "Editor", adminOnly: true },
-  { href: "/preview", label: "Preview", adminOnly: true },
-  { href: "/export", label: "Export", adminOnly: false }
+  { href: "/", label: "Beranda", adminOnly: false },
+  { href: "/books", label: "Buku Lagu", adminOnly: true },
+  { href: "/songs", label: "Daftar Lagu", adminOnly: false },
+  { href: "/users", label: "Tim", adminOnly: true },
+  { href: "/export", label: "Unduh PPTX", adminOnly: false }
 ];
 
 export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -33,7 +32,7 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
             <Link href="/" className="text-lg font-semibold tracking-normal text-ink-950">
               SongSlide
             </Link>
-            <p className="mt-1 text-sm text-ink-500">Local church song notation workflow</p>
+            <p className="mt-1 text-sm text-ink-500">Sistem otomatisasi partitur lagu jemaat</p>
           </div>
           <div className="flex items-center gap-4 text-xs text-ink-500">
             <span>API: <span className="font-medium text-ink-700">{apiBaseUrl}</span></span>

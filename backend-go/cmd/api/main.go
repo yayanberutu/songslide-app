@@ -12,6 +12,8 @@ import (
 	"github.com/yayanberutu/songslide/backend-go/internal/songbook"
 	"github.com/yayanberutu/songslide/backend-go/internal/sourceimage"
 	"github.com/yayanberutu/songslide/backend-go/internal/storage"
+	"github.com/yayanberutu/songslide/backend-go/internal/user"
+	"github.com/yayanberutu/songslide/backend-go/internal/analytics"
 	"github.com/yayanberutu/songslide/backend-go/internal/auth"
 	"github.com/yayanberutu/songslide/backend-go/internal/middleware"
 )
@@ -68,6 +70,17 @@ func main() {
 
 		exportHandler := exporting.NewHandler(db.DB, fileStorage, exportClient)
 		exportHandler.RegisterRoutes(publicApi, protectedApi)
+	}
+
+	adminApi := r.Group("/api")
+	adminApi.Use(middleware.AuthMiddleware())
+	adminApi.Use(middleware.RequireRole(user.RoleAdmin))
+	{
+		userHandler := user.NewHandler(db.DB)
+		userHandler.RegisterRoutes(adminApi)
+
+		analyticsHandler := analytics.NewHandler(db.DB)
+		analyticsHandler.RegisterRoutes(adminApi)
 	}
 
 	log.Printf("Starting backend-go server on port %s", config.AppConfig.Port)

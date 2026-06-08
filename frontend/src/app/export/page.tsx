@@ -247,12 +247,12 @@ export default function ExportPage() {
   return (
     <section className="space-y-6">
       <div className="border-b border-zinc-200 pb-5">
-        <p className="text-sm font-semibold uppercase tracking-normal text-ink-500">Export</p>
+        <p className="text-sm font-semibold uppercase tracking-normal text-ink-500">Unduh PPTX</p>
         <h1 className="mt-2 text-3xl font-semibold tracking-normal text-ink-950">
-          Multiple Songs Export
+          Ekspor Daftar Lagu
         </h1>
         <p className="mt-3 max-w-3xl text-base leading-7 text-ink-700">
-          Prepare and generate a setlist of multiple songs into a single PPTX or PNG ZIP file.
+          Siapkan beberapa lagu sekaligus dan unduh menjadi satu file PPTX atau paket PNG.
         </p>
       </div>
 
@@ -349,17 +349,17 @@ export default function ExportPage() {
                 </div>
 
                 <div>
-                  <Field label="Refrain Mode">
+                  <Field label="Posisi Reff (Refrain Mode)">
                     <SelectInput 
                       value={refrainMode} 
                       onChange={(e) => setRefrainMode(e.target.value as ExportRefrainMode)}
                       disabled={!hasRefrain}
                     >
-                      <option value="NONE">None</option>
+                      <option value="NONE">Tidak Ada / Abaikan</option>
                       {hasRefrain && (
                         <>
-                          <option value="ONCE_AFTER_ALL_VERSES">Once after all verses</option>
-                          <option value="AFTER_EACH_VERSE">After each verse</option>
+                          <option value="ONCE_AFTER_ALL_VERSES">Hanya sekali di akhir lagu</option>
+                          <option value="AFTER_EACH_VERSE">Setelah setiap bait</option>
                         </>
                       )}
                     </SelectInput>
@@ -411,36 +411,36 @@ export default function ExportPage() {
 
         <aside className="space-y-6">
           <div className="rounded-md border border-zinc-200 bg-white p-5 space-y-4">
-            <h2 className="text-base font-semibold text-ink-950 border-b border-zinc-100 pb-2">Global Settings</h2>
+            <h2 className="text-base font-semibold text-ink-950 border-b border-zinc-100 pb-2">Pengaturan Umum</h2>
 
-            <Field label="File Name">
+            <Field label="Nama File">
               <TextInput
                 value={fileName}
                 onChange={(e) => setFileName(e.target.value)}
-                placeholder="e.g. ibadah-minggu"
+                placeholder="misal: ibadah-minggu"
               />
             </Field>
 
-            <Field label="Output Format">
+            <Field label="Format File">
               <SelectInput value={outputFormat} onChange={(e) => setOutputFormat(e.target.value as ExportOutputFormat)}>
-                <option value="PPTX">PPTX</option>
-                <option value="PNG">PNG ZIP</option>
+                <option value="PPTX">PowerPoint (PPTX)</option>
+                <option value="PNG">Gambar ZIP (PNG)</option>
               </SelectInput>
             </Field>
 
-            <Field label="Theme">
+            <Field label="Tema Warna">
               <SelectInput value={theme} onChange={(e) => setTheme(e.target.value as ExportTheme)}>
-                <option value="LIGHT">Light</option>
-                <option value="DARK">Dark</option>
+                <option value="LIGHT">Terang (Light)</option>
+                <option value="DARK">Gelap (Dark)</option>
               </SelectInput>
             </Field>
 
-            <Field label="Text Size Preset">
+            <Field label="Ukuran Teks / Angka">
               <SelectInput value={textSizePreset} onChange={(e) => setTextSizePreset(e.target.value as ExportTextSizePreset)}>
-                <option value="SMALL">Small / compact</option>
-                <option value="MEDIUM">Medium / standard</option>
-                <option value="LARGE">Large / large room</option>
-                <option value="CUSTOM">Custom (Reflow)</option>
+                <option value="SMALL">Kecil / Padat</option>
+                <option value="MEDIUM">Sedang / Standar</option>
+                <option value="LARGE">Besar / Layar Lebar</option>
+                <option value="CUSTOM">Bebas (Custom Reflow)</option>
               </SelectInput>
             </Field>
 
@@ -451,12 +451,12 @@ export default function ExportPage() {
                 checked={showNotation}
                 onChange={(e) => setShowNotation(e.target.checked)}
               />
-              Show notation
+              Tampilkan Not Angka
             </label>
 
             {isCustomLayout && (
-              <div className="grid gap-4 grid-cols-2 pt-2">
-                <Field label="Beats / Line">
+              <div className="grid gap-4 grid-cols-2 pt-2 items-end">
+                <Field label="Ketukan/Baris">
                   <TextInput
                     type="number"
                     min={1}
@@ -464,7 +464,7 @@ export default function ExportPage() {
                     onChange={(e) => setBeatsPerLine(parseInt(e.target.value) || 16)}
                   />
                 </Field>
-                <Field label="Lines / Page">
+                <Field label="Baris/Halaman">
                   <TextInput
                     type="number"
                     min={1}
@@ -483,20 +483,20 @@ export default function ExportPage() {
               disabled={exporting || items.length === 0 || !fileName.trim()}
               onClick={() => void handleExport()}
             >
-              {exporting ? "Generating..." : `Generate ${outputFormat === "PPTX" ? "PPTX" : "PNG ZIP"}`}
+              {exporting ? "Memproses..." : `Generate Presentasi`}
             </Button>
 
             <InlineError message={exportError} />
 
             {exportResult?.downloadUrl ? (
               <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 break-words">
-                <p className="font-semibold">Export completed successfully.</p>
+                <p className="font-semibold">Ekspor berhasil diselesaikan.</p>
                 <a
                   href={exportDownloadHref(exportResult.downloadUrl)}
                   download
                   className="mt-3 block text-center rounded-md bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-800"
                 >
-                  Download {exportResult.outputFormat === "PPTX" ? "PPTX" : "PNG ZIP"}
+                  Unduh File {exportResult.outputFormat === "PPTX" ? "PPTX" : "PNG ZIP"}
                 </a>
               </div>
             ) : null}

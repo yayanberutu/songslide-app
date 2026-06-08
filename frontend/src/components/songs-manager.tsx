@@ -75,7 +75,7 @@ export function SongsManager() {
       void loadSongList(filters);
     }, 300);
     return () => clearTimeout(handler);
-  }, [filters.title, filters.songNumber, filters.bookCode, filters.page]);
+  }, [filters]);
 
   const sortedSongBooks = useMemo(
     () => [...songBooks].sort((a, b) => a.code.localeCompare(b.code)),
@@ -192,15 +192,15 @@ export function SongsManager() {
     <section className="space-y-6">
       <div className="flex flex-col gap-4 border-b border-zinc-200 pb-5 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-normal text-ink-500">Songs</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-normal text-ink-950">Song catalog</h1>
+          <p className="text-sm font-semibold uppercase tracking-normal text-ink-500">Daftar Lagu</p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-normal text-ink-950">Katalog Lagu</h1>
           <p className="mt-3 max-w-3xl text-base leading-7 text-ink-700">
-            Create and maintain song metadata before adding notation arrangements.
+            Daftarkan lagu baru di sini sebelum Anda mulai mengetik Not Angkanya.
           </p>
         </div>
         {isAdmin && (
           <Button variant="primary" onClick={startCreate}>
-            + Add New Song
+            + Tambah Lagu Baru
           </Button>
         )}
       </div>
@@ -245,19 +245,19 @@ export function SongsManager() {
       <div className="space-y-3">
         <InlineError message={pageError} />
         {loading && songs.length === 0 ? (
-          <LoadingState label="Loading songs..." />
+          <LoadingState label="Memuat lagu..." />
         ) : songs.length === 0 ? (
-          <EmptyState title="No songs found" description="Adjust your filters or add a new song." />
+          <EmptyState title="Lagu tidak ditemukan" description="Coba ubah filter pencarian Anda." />
         ) : (
           <div className="overflow-hidden rounded-md border border-zinc-200 bg-white shadow-sm">
             <table className="min-w-full divide-y divide-zinc-200 text-sm">
               <thead className="bg-zinc-50 text-left text-xs font-semibold uppercase tracking-normal text-ink-500">
                 <tr>
-                  <th className="px-4 py-3">Code</th>
-                  <th className="px-4 py-3">Title</th>
-                  <th className="px-4 py-3">Metadata</th>
-                  <th className="px-4 py-3">Author</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
+                  <th className="px-4 py-3">Kode</th>
+                  <th className="px-4 py-3">Judul</th>
+                  <th className="px-4 py-3">Info</th>
+                  <th className="px-4 py-3">Penulis</th>
+                  <th className="px-4 py-3 text-right">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
@@ -276,19 +276,16 @@ export function SongsManager() {
                     <td className="px-4 py-3 text-ink-500">{song.authorText || "—"}</td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex justify-end gap-3 text-sm">
-                        <Link href={`/songs/${song.id}`} className="font-medium text-blue-600 hover:text-blue-800">
-                          View
-                        </Link>
                         {isAdmin && (
                           <>
                             <Link href={`/songs/${song.id}/editor`} className="font-medium text-indigo-600 hover:text-indigo-800">
-                              Editor
+                              Ketik Not Angka
                             </Link>
                             <button onClick={() => startEdit(song)} className="font-medium text-zinc-600 hover:text-zinc-800">
                               Edit
                             </button>
                             <button onClick={() => void handleDelete(song)} className="font-medium text-red-600 hover:text-red-800">
-                              Delete
+                              Hapus
                             </button>
                           </>
                         )}

@@ -3,14 +3,20 @@ import { getSession } from "next-auth/react";
 export const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 
 export function apiUrl(path: string) {
-  const normalizedBase = apiBaseUrl.replace(/\/$/, "");
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   const apiPath = normalizedPath.startsWith("/api/") ? normalizedPath.slice(4) : normalizedPath;
   if (typeof window !== "undefined") {
     return `/backend-api${apiPath}`;
   }
 
-  return `${normalizedBase}${normalizedPath}`;
+  let serverBase = process.env.BACKEND_INTERNAL_URL ?? apiBaseUrl;
+  if (serverBase.includes("localhost") && process.env.NODE_ENV === "production") {
+    // In docker, fallback to backend container
+    serverBase = "http://backend:8080/api";
+  }
+  const normalizedBase = serverBase.replace(/\/$/, "");
+  console.log("Fetching API from server:", `${normalizedBase}${apiPath}`);
+  return `${normalizedBase}${apiPath}`;
 }
 
 export type ApiStatus = "SUCCESS" | "FAILED";
@@ -59,7 +65,8 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
   const payload = await readApiResponse<T>(response);
 
   if (!response.ok || payload.status === "FAILED") {
-    throw new ApiError(payload.errorMessage ?? `Request failed with status ${response.status}`, payload.code);
+    const errorMsg = payload.errorMessage || `Request failed with status ${response.status}`;
+    throw new ApiError(errorMsg, payload.code);
   }
 
   return payload.data as T;

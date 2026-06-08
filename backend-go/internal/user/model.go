@@ -20,6 +20,8 @@ type User struct {
 	Username     string    `gorm:"type:varchar(255);uniqueIndex;not null"`
 	PasswordHash string    `gorm:"type:varchar(255);not null"`
 	Role         Role      `gorm:"type:varchar(50);not null"`
+	LoginCount   int       `gorm:"default:0"`
+	LastLoginAt  *time.Time
 	CreatedAt    time.Time `gorm:"not null"`
 	UpdatedAt    time.Time `gorm:"not null"`
 }
@@ -44,17 +46,21 @@ func HashPassword(password string) (string, error) {
 type UserResponse struct {
 	ID        uuid.UUID `json:"id"`
 	Username  string    `json:"username"`
-	Role      string    `json:"role"`
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
+	Role        string     `json:"role"`
+	LoginCount  int        `json:"loginCount"`
+	LastLoginAt *time.Time `json:"lastLoginAt"`
+	CreatedAt   time.Time  `json:"createdAt"`
+	UpdatedAt   time.Time  `json:"updatedAt"`
 }
 
 func (u *User) ToResponse() UserResponse {
 	return UserResponse{
 		ID:        u.ID,
 		Username:  u.Username,
-		Role:      string(u.Role),
-		CreatedAt: u.CreatedAt,
-		UpdatedAt: u.UpdatedAt,
+		Role:        string(u.Role),
+		LoginCount:  u.LoginCount,
+		LastLoginAt: u.LastLoginAt,
+		CreatedAt:   u.CreatedAt,
+		UpdatedAt:   u.UpdatedAt,
 	}
 }

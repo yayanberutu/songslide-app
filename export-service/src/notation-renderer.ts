@@ -232,17 +232,17 @@ export function createRenderMetrics(scale = 1): RenderMetrics {
     extensionWidth: 14 * scale,
     barWidth: 8 * scale,
     tokenGap: 4 * scale,
-    notationHeight: 54 * scale,
+    notationHeight: 64 * scale,
     lyricHeight: 28 * scale,
-    baselineY: 29 * scale,
-    topDotY: 13 * scale,
-    topDotYBeamed: 16 * scale,
-    bottomDotY: 40 * scale,
-    extensionDotY: 29 * scale,
+    baselineY: 44 * scale,
+    topDotY: 24 * scale,
+    topDotYBeamed: 24 * scale,
+    bottomDotY: 54 * scale,
+    extensionDotY: 44 * scale,
     beamLevelOneY: 8 * scale,
-    beamLevelTwoY: 13 * scale,
-    slurBaseY: 46 * scale,
-    lyricBaselineY: 73 * scale,
+    beamLevelTwoY: 14 * scale,
+    slurBaseY: 58 * scale,
+    lyricBaselineY: 83 * scale,
     noteFontSize: 24 * scale,
     restFontSize: 22 * scale,
     lyricFontSize: 22 * scale,
@@ -754,7 +754,7 @@ function renderBarToken(x: number, theme: RenderTheme, metrics: RenderMetrics): 
   return {
     width: metrics.barWidth,
     markup: [
-      `<line x1="${centerX}" y1="${12 * metrics.scale}" x2="${centerX}" y2="${29 * metrics.scale}" stroke="#${theme.notationText}" stroke-width="${1.5 * metrics.scale}" stroke-linecap="round" opacity="0.8" />`
+      `<line x1="${centerX}" y1="${24 * metrics.scale}" x2="${centerX}" y2="${46 * metrics.scale}" stroke="#${theme.notationText}" stroke-width="${1.5 * metrics.scale}" stroke-linecap="round" opacity="0.8" />`
     ],
     slotAnchors: [],
     firstNoteAnchor: null
@@ -768,8 +768,8 @@ function renderDoubleBarToken(x: number, theme: RenderTheme, metrics: RenderMetr
   return {
     width,
     markup: [
-      `<line x1="${leftX}" y1="${12 * metrics.scale}" x2="${leftX}" y2="${29 * metrics.scale}" stroke="#${theme.notationText}" stroke-width="${1.5 * metrics.scale}" stroke-linecap="round" opacity="0.8" />`,
-      `<line x1="${rightX}" y1="${12 * metrics.scale}" x2="${rightX}" y2="${29 * metrics.scale}" stroke="#${theme.notationText}" stroke-width="${3 * metrics.scale}" stroke-linecap="round" opacity="0.8" />`
+      `<line x1="${leftX}" y1="${24 * metrics.scale}" x2="${leftX}" y2="${46 * metrics.scale}" stroke="#${theme.notationText}" stroke-width="${1.5 * metrics.scale}" stroke-linecap="round" opacity="0.8" />`,
+      `<line x1="${rightX}" y1="${24 * metrics.scale}" x2="${rightX}" y2="${46 * metrics.scale}" stroke="#${theme.notationText}" stroke-width="${3 * metrics.scale}" stroke-linecap="round" opacity="0.8" />`
     ],
     slotAnchors: [],
     firstNoteAnchor: null
@@ -844,7 +844,7 @@ function renderBeamToken(
 }
 
 function renderLyricText(anchorX: number, text: string, color: string, metrics: RenderMetrics): string {
-  return `<text x="${anchorX}" y="${metrics.lyricBaselineY}" text-anchor="middle" dominant-baseline="middle" font-family="Aptos, Arial, sans-serif" font-size="${metrics.lyricFontSize}" font-weight="400" fill="#${color}">${escapeXml(text)}</text>`;
+  return `<text x="${anchorX}" y="${metrics.lyricBaselineY}" text-anchor="middle" dominant-baseline="middle" font-family="Aptos, Arial, sans-serif" font-size="${metrics.lyricFontSize}" font-weight="600" fill="#${color}">${escapeXml(text)}</text>`;
 }
 
 function renderPlainNotationSvg(
@@ -862,7 +862,7 @@ function renderPlainNotationSvg(
     svg: [
       `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMinYMid meet" role="img">`,
       `<text x="0" y="${textY}" font-family="Courier New, ui-monospace, monospace" font-size="${metrics.plainNotationFontSize}" font-weight="700" fill="#${theme.notationText}">${escapeXml(notation)}</text>`,
-      hasLyric ? `<text x="0" y="${metrics.lyricBaselineY}" font-family="Aptos, Arial, sans-serif" font-size="${metrics.lyricFontSize}" fill="#${theme.lyricText}">${escapeXml(lyric ?? "")}</text>` : "",
+      hasLyric ? `<text x="0" y="${metrics.lyricBaselineY}" font-family="Aptos, Arial, sans-serif" font-size="${metrics.lyricFontSize}" font-weight="600" fill="#${theme.lyricText}">${escapeXml(lyric ?? "")}</text>` : "",
       "</svg>"
     ].join(""),
     width,
