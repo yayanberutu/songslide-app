@@ -668,13 +668,13 @@ function renderToken(
     case "NOTE":
       return renderNoteToken(token, x, beamDepth, theme, metrics);
     case "REST":
-      return renderRestToken(token, x, theme, metrics);
+      return renderRestToken(token, x, beamDepth, theme, metrics);
     case "BAR":
       return renderBarToken(x, theme, metrics);
     case "DOUBLE_BAR":
       return renderDoubleBarToken(x, theme, metrics);
     case "EXTENSION":
-      return renderExtensionToken(token, x, theme, metrics);
+      return renderExtensionToken(token, x, beamDepth, theme, metrics);
     case "SLUR":
       return renderSlurToken(token, x, beamDepth, theme, metrics, syllables);
     case "BEAM":
@@ -744,12 +744,19 @@ function renderNoteToken(
   }
 
   if (token.hasFermata) {
-    const rx = 5 * metrics.scale;
-    const ry = 4 * metrics.scale;
-    const cy = metrics.fermataY + 2 * metrics.scale;
+    let highestY = metrics.baselineY - 16 * metrics.scale;
+    if (beamDepth > 0) {
+      highestY = metrics.beamLevelOneY - 2 * metrics.scale;
+    } else if (token.octave > 0) {
+      highestY = metrics.topDotY - 6 * metrics.scale;
+    }
+
+    const rx = 8 * metrics.scale;
+    const ry = 5 * metrics.scale;
+    const cy = highestY - 4 * metrics.scale;
     markup.push(
-      `<path d="M ${centerX - rx} ${cy} Q ${centerX} ${metrics.fermataY - ry} ${centerX + rx} ${cy}" fill="none" stroke="#${theme.notationText}" stroke-width="${1.2 * metrics.scale}" />`,
-      `<circle cx="${centerX}" cy="${cy - 1.5 * metrics.scale}" r="${1.2 * metrics.scale}" fill="#${theme.notationText}" />`
+      `<path d="M ${centerX - rx} ${cy} Q ${centerX} ${cy - ry} ${centerX + rx} ${cy}" fill="none" stroke="#${theme.notationText}" stroke-width="${1.5 * metrics.scale}" />`,
+      `<circle cx="${centerX}" cy="${cy - 1.5 * metrics.scale}" r="${1.5 * metrics.scale}" fill="#${theme.notationText}" />`
     );
   }
 
@@ -761,19 +768,24 @@ function renderNoteToken(
   };
 }
 
-function renderRestToken(token: NotationRestToken, x: number, theme: RenderTheme, metrics: RenderMetrics): RenderedToken {
+function renderRestToken(token: NotationRestToken, x: number, beamDepth: number, theme: RenderTheme, metrics: RenderMetrics): RenderedToken {
   const centerX = x + metrics.restWidth / 2;
   const markup: string[] = [
     `<text x="${centerX}" y="${metrics.baselineY}" text-anchor="middle" dominant-baseline="middle" font-family="Aptos, Arial, sans-serif" font-size="${metrics.restFontSize}" font-weight="700" fill="#${theme.notationText}" opacity="0.7">0</text>`
   ];
 
   if (token.hasFermata) {
-    const rx = 5 * metrics.scale;
-    const ry = 4 * metrics.scale;
-    const cy = metrics.fermataY + 2 * metrics.scale;
+    let highestY = metrics.baselineY - 16 * metrics.scale;
+    if (beamDepth > 0) {
+      highestY = metrics.beamLevelOneY - 2 * metrics.scale;
+    }
+
+    const rx = 8 * metrics.scale;
+    const ry = 5 * metrics.scale;
+    const cy = highestY - 4 * metrics.scale;
     markup.push(
-      `<path d="M ${centerX - rx} ${cy} Q ${centerX} ${metrics.fermataY - ry} ${centerX + rx} ${cy}" fill="none" stroke="#${theme.notationText}" stroke-width="${1.2 * metrics.scale}" />`,
-      `<circle cx="${centerX}" cy="${cy - 1.5 * metrics.scale}" r="${1.2 * metrics.scale}" fill="#${theme.notationText}" />`
+      `<path d="M ${centerX - rx} ${cy} Q ${centerX} ${cy - ry} ${centerX + rx} ${cy}" fill="none" stroke="#${theme.notationText}" stroke-width="${1.5 * metrics.scale}" />`,
+      `<circle cx="${centerX}" cy="${cy - 1.5 * metrics.scale}" r="${1.5 * metrics.scale}" fill="#${theme.notationText}" />`
     );
   }
 
@@ -812,19 +824,24 @@ function renderDoubleBarToken(x: number, theme: RenderTheme, metrics: RenderMetr
   };
 }
 
-function renderExtensionToken(token: NotationExtensionToken, x: number, theme: RenderTheme, metrics: RenderMetrics): RenderedToken {
+function renderExtensionToken(token: NotationExtensionToken, x: number, beamDepth: number, theme: RenderTheme, metrics: RenderMetrics): RenderedToken {
   const centerX = x + metrics.extensionWidth / 2;
   const markup: string[] = [
     `<circle cx="${centerX}" cy="${metrics.extensionDotY}" r="${Math.max(1.8, 2 * metrics.scale)}" fill="#${theme.notationText}" />`
   ];
 
   if (token.hasFermata) {
-    const rx = 5 * metrics.scale;
-    const ry = 4 * metrics.scale;
-    const cy = metrics.fermataY + 2 * metrics.scale;
+    let highestY = metrics.extensionDotY - 4 * metrics.scale;
+    if (beamDepth > 0) {
+      highestY = metrics.beamLevelOneY - 2 * metrics.scale;
+    }
+
+    const rx = 8 * metrics.scale;
+    const ry = 5 * metrics.scale;
+    const cy = highestY - 4 * metrics.scale;
     markup.push(
-      `<path d="M ${centerX - rx} ${cy} Q ${centerX} ${metrics.fermataY - ry} ${centerX + rx} ${cy}" fill="none" stroke="#${theme.notationText}" stroke-width="${1.2 * metrics.scale}" />`,
-      `<circle cx="${centerX}" cy="${cy - 1.5 * metrics.scale}" r="${1.2 * metrics.scale}" fill="#${theme.notationText}" />`
+      `<path d="M ${centerX - rx} ${cy} Q ${centerX} ${cy - ry} ${centerX + rx} ${cy}" fill="none" stroke="#${theme.notationText}" stroke-width="${1.5 * metrics.scale}" />`,
+      `<circle cx="${centerX}" cy="${cy - 1.5 * metrics.scale}" r="${1.5 * metrics.scale}" fill="#${theme.notationText}" />`
     );
   }
 
@@ -871,9 +888,19 @@ function renderBeamToken(
   syllables?: Map<NotationToken, string>
 ): RenderedToken {
   const nextBeamDepth = Math.min(beamDepth + 1, 2);
-  const children = renderTokenSequence(token.children, x, nextBeamDepth, theme, metrics, syllables);
-  const width = Math.max(children.width, metrics.noteWidth);
-  const beamY = nextBeamDepth === 1 ? metrics.beamLevelOneY : metrics.beamLevelTwoY;
+  let dynamicMetrics = metrics;
+
+  if (nextBeamDepth === 1 && !hasHighElements(token.children)) {
+    dynamicMetrics = {
+      ...metrics,
+      beamLevelOneY: metrics.beamLevelOneY + 12 * metrics.scale,
+      beamLevelTwoY: metrics.beamLevelTwoY + 12 * metrics.scale
+    };
+  }
+
+  const children = renderTokenSequence(token.children, x, nextBeamDepth, theme, dynamicMetrics, syllables);
+  const width = Math.max(children.width, dynamicMetrics.noteWidth);
+  const beamY = nextBeamDepth === 1 ? dynamicMetrics.beamLevelOneY : dynamicMetrics.beamLevelTwoY;
   
   const startX = children.firstNoteAnchor !== null ? children.firstNoteAnchor : x + 2 * metrics.scale;
   // approximate the right anchor symmetrically
@@ -945,6 +972,18 @@ function findFirstRenderableNote(tokens: readonly NotationToken[]): NotationNote
   }
 
   return null;
+}
+
+function hasHighElements(tokens: readonly NotationToken[]): boolean {
+  for (const token of tokens) {
+    if (token.type === "NOTE" && token.octave > 0) {
+      return true;
+    }
+    if ((token.type === "SLUR" || token.type === "BEAM") && hasHighElements(token.children)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function resolveLyricPlacements(

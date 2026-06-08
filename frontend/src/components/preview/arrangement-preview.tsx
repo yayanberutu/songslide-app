@@ -31,7 +31,7 @@ import {
 import { getSong, type Song } from "@/lib/song-api";
 import { AlignedNotationLine } from "@/components/notation/AlignedNotationLine";
 import { NotationLine } from "@/components/notation/NotationLine";
-import { Button, EmptyState, Field, InlineError, LoadingState, SelectInput } from "@/components/ui";
+import { Button, EmptyState, Field, InlineError, LoadingState, SelectInput, TextInput } from "@/components/ui";
 import { useSession } from "next-auth/react";
 
 type ArrangementPreviewProps = {
@@ -70,6 +70,9 @@ export function ArrangementPreview({ songId }: ArrangementPreviewProps) {
   const [theme, setTheme] = useState<PreviewTheme>("LIGHT");
   const [showNotation, setShowNotation] = useState(true);
   const [textSizePreset, setTextSizePreset] = useState<TextSizePreset>("MEDIUM");
+  const isCustomLayout = textSizePreset === "CUSTOM";
+  const [beatsPerLine, setBeatsPerLine] = useState(16);
+  const [linesPerPage, setLinesPerPage] = useState(2);
   const [outputFormat, setOutputFormat] = useState<ExportOutputFormat>("PPTX");
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
@@ -162,7 +165,13 @@ export function ArrangementPreview({ songId }: ArrangementPreviewProps) {
           theme,
           showNotation,
           slideSize: "LAYOUT_WIDE",
-          textSizePreset
+          textSizePreset,
+          ...(isCustomLayout ? {
+            customLayout: {
+              beatsPerLine,
+              linesPerPage
+            }
+          } : {})
         }
       });
 
@@ -305,11 +314,35 @@ export function ArrangementPreview({ songId }: ArrangementPreviewProps) {
                 <option value="SMALL">Small / compact</option>
                 <option value="MEDIUM">Medium / standard</option>
                 <option value="LARGE">Large / large room</option>
+                <option value="CUSTOM">Custom</option>
               </SelectInput>
               <p className="mt-2 text-xs leading-5 text-ink-500">
                 SMALL fits more content. MEDIUM is standard. LARGE is easier to read from far away.
               </p>
             </Field>
+
+            {isCustomLayout ? (
+              <div className="grid grid-cols-2 gap-3 rounded-md border border-zinc-200 bg-zinc-50 p-3">
+                <Field label="Ketukan per baris">
+                  <TextInput
+                    type="number"
+                    min={4}
+                    max={64}
+                    value={beatsPerLine.toString()}
+                    onChange={(event) => setBeatsPerLine(parseInt(event.target.value, 10) || 16)}
+                  />
+                </Field>
+                <Field label="Baris per slide">
+                  <TextInput
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={linesPerPage.toString()}
+                    onChange={(event) => setLinesPerPage(parseInt(event.target.value, 10) || 2)}
+                  />
+                </Field>
+              </div>
+            ) : null}
             <Button
               type="button"
               variant="primary"
