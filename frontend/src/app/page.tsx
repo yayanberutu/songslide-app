@@ -104,8 +104,20 @@ export default async function DashboardPage() {
 
         <div className="relative">
           <div className="absolute -left-10 top-0 flex h-8 w-8 items-center justify-center rounded-full bg-indigo-600 text-white font-bold ring-4 ring-white">3</div>
-          <h2 className="text-xl font-semibold text-ink-900">Atur & Selesai!</h2>
-          <p className="mt-1 text-ink-600">Anda dapat mengatur <strong className="text-ink-800">Ukuran Bebas</strong> (besar/kecilnya huruf) dan <strong className="text-ink-800">Posisi Reff</strong> jika mau. Setelah puas, klik tombol <span className="inline-flex rounded bg-zinc-800 px-2 py-1 text-xs text-white">Generate Presentation</span>. Selesai!</p>
+          <h2 className="text-xl font-semibold text-ink-900">Atur Spesifikasi Ekspor</h2>
+          <p className="mt-1 text-ink-600 mb-2">Sebelum mengunduh, Anda dapat melakukan personalisasi tampilan presentasi sesuai dengan kebutuhan ibadah Anda:</p>
+          <ul className="list-disc pl-5 space-y-1 text-ink-600">
+            <li><strong className="text-ink-800">Tema Warna</strong>: Gelap (teks putih) atau Terang (teks hitam).</li>
+            <li><strong className="text-ink-800">Ukuran Kerapatan Teks</strong>: Kecil, Sedang, Besar, atau mode Kustom (menentukan jumlah ketukan per baris secara manual).</li>
+            <li><strong className="text-ink-800">Posisi Reff/Koor</strong>: Memilih apakah reff diulang setelah setiap bait/ayat, atau hanya sekali di akhir lagu.</li>
+            <li><strong className="text-ink-800">Visibilitas Not Angka</strong>: Anda dapat menyembunyikan not angka jika hanya membutuhkan lirik saja.</li>
+          </ul>
+        </div>
+
+        <div className="relative">
+          <div className="absolute -left-10 top-0 flex h-8 w-8 items-center justify-center rounded-full bg-indigo-600 text-white font-bold ring-4 ring-white">4</div>
+          <h2 className="text-xl font-semibold text-ink-900">Unduh & Selesai!</h2>
+          <p className="mt-1 text-ink-600">Pilih format unduhan (PowerPoint PPTX atau paket gambar ZIP). Setelah puas dengan setelannya, klik tombol <span className="inline-flex rounded bg-zinc-800 px-2 py-1 text-xs text-white">Generate Presentation</span>. Selesai!</p>
         </div>
 
       </div>
