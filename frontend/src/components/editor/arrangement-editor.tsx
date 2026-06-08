@@ -162,6 +162,12 @@ export function ArrangementEditor({ songId }: ArrangementEditorProps) {
             >
               Kembali
             </Link>
+            <Link
+              href={`/songs/${songId}/preview`}
+              className="inline-flex items-center justify-center rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-ink-700 hover:bg-zinc-100"
+            >
+              Pratinjau
+            </Link>
             <Button variant="primary" type="button" disabled={saving} onClick={() => void saveContent()}>
               {saving ? "Menyimpan..." : "Simpan Perubahan"}
             </Button>
