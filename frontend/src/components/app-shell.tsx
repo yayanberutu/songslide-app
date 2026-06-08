@@ -29,7 +29,8 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
       <header className="border-b border-zinc-200 bg-white">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
           <div>
-            <Link href="/" className="text-lg font-semibold tracking-normal text-ink-950">
+            <Link href="/" className="flex items-center gap-2 text-lg font-semibold tracking-normal text-ink-950">
+              <img src="/logo.png" alt="SongSlide Logo" className="h-6 w-6 object-contain rounded-sm" />
               SongSlide
             </Link>
             <p className="mt-1 text-sm text-ink-500">Sistem otomatisasi partitur lagu jemaat</p>
@@ -64,6 +65,9 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
         </nav>
       </header>
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">{children}</main>
+      <footer className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 text-center text-sm text-zinc-500 border-t border-zinc-200 mt-auto">
+        Powered by <a href="https://berutu.dev" target="_blank" rel="noreferrer" className="text-zinc-700 hover:text-zinc-900 font-medium transition-colors">berutu.dev</a>
+      </footer>
     </div>
   );
 }

@@ -42,9 +42,7 @@ export default function LoginPage() {
       <div className="hidden lg:flex lg:w-1/2 flex-col bg-ink-950 p-12 text-white overflow-hidden relative">
         <div className="relative z-10">
           <div className="flex items-center gap-3 font-semibold text-xl tracking-wide">
-            <svg className="h-8 w-8 text-white" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z" />
-            </svg>
+            <img src="/logo.png" alt="SongSlide Logo" className="h-8 w-8 object-contain rounded-md" />
             SongSlide
           </div>
         </div>
@@ -59,6 +57,9 @@ export default function LoginPage() {
         {/* Background decorative elements */}
         <div className="absolute -bottom-32 -left-32 w-96 h-96 rounded-full bg-ink-800 opacity-50 blur-3xl"></div>
         <div className="absolute top-1/4 -right-20 w-72 h-72 rounded-full bg-ink-700 opacity-30 blur-3xl"></div>
+        <div className="relative z-10 text-sm text-ink-400 font-medium pb-2">
+          Crafted by <a href="https://berutu.dev" target="_blank" rel="noreferrer" className="text-white hover:text-ink-200 transition-colors">berutu.dev</a>
+        </div>
       </div>
 
       {/* Right Column: Login Form */}
@@ -66,9 +67,7 @@ export default function LoginPage() {
         <div className="mx-auto w-full max-w-sm lg:w-96">
           <div className="lg:hidden mb-8">
             <div className="flex items-center gap-2 font-bold text-2xl tracking-tight text-ink-950">
-              <svg className="h-8 w-8 text-ink-950" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z" />
-              </svg>
+              <img src="/logo.png" alt="SongSlide Logo" className="h-8 w-8 object-contain rounded-md" />
               SongSlide
             </div>
             <p className="mt-2 text-sm text-zinc-600">
