@@ -45,6 +45,8 @@ logs/
 # Generated export artifacts
 *.pptx
 *.png
+!frontend/public/logo.png
+!frontend/src/app/icon.png
 *.zip
 
 # Docker local data
