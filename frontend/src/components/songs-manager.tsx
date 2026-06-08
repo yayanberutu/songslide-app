@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ApiError } from "@/lib/api-client";
 import {
@@ -48,6 +49,7 @@ const emptyFilters: SongSearchParams = {
 };
 
 export function SongsManager() {
+  const router = useRouter();
   const [songBooks, setSongBooks] = useState<SongBook[]>([]);
   const [songs, setSongs] = useState<Song[]>([]);
   const [filters, setFilters] = useState<SongSearchParams>(emptyFilters);
@@ -129,12 +131,15 @@ export function SongsManager() {
     try {
       if (editing) {
         await updateSong(editing.id, payload);
+        setIsModalOpen(false);
+        resetForm();
+        await loadSongList(filters);
       } else {
-        await createSong(payload);
+        const created = await createSong(payload);
+        setIsModalOpen(false);
+        resetForm();
+        router.push(`/songs/${created.id}/editor`);
       }
-      setIsModalOpen(false);
-      resetForm();
-      await loadSongList(filters);
     } catch (error) {
       setFormError(errorMessage(error, "Unable to save song"));
     } finally {
