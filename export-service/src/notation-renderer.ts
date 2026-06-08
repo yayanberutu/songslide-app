@@ -18,6 +18,7 @@ type NotationTokenBase = {
   raw: string;
   index: number;
   lyricSlots: number;
+  hasFermata?: boolean;
 };
 
 export type NotationNoteToken = NotationTokenBase & {
@@ -109,6 +110,7 @@ export type RenderMetrics = {
   topDotYBeamed: number;
   bottomDotY: number;
   extensionDotY: number;
+  fermataY: number;
   beamLevelOneY: number;
   beamLevelTwoY: number;
   slurBaseY: number;
@@ -239,6 +241,7 @@ export function createRenderMetrics(scale = 1): RenderMetrics {
     topDotYBeamed: 24 * scale,
     bottomDotY: 54 * scale,
     extensionDotY: 44 * scale,
+    fermataY: 2 * scale,
     beamLevelOneY: 8 * scale,
     beamLevelTwoY: 14 * scale,
     slurBaseY: 58 * scale,
@@ -508,17 +511,26 @@ function parseGroup(
 }
 
 function parseStandaloneToken(
-  raw: string,
+  originalRaw: string,
   index: number,
   options: { allowRest: boolean }
 ): { token: NotationNoteToken | NotationRestToken | NotationExtensionToken | null; issues: NotationParserIssue[] } {
+  let raw = originalRaw;
+  let hasFermata = false;
+
+  if (raw.endsWith("^")) {
+    hasFermata = true;
+    raw = raw.slice(0, -1);
+  }
+
   if (raw === ".") {
     return {
       token: {
         type: "EXTENSION",
-        raw,
+        raw: originalRaw,
         index,
-        lyricSlots: 0
+        lyricSlots: 0,
+        hasFermata
       },
       issues: []
     };
@@ -540,9 +552,10 @@ function parseStandaloneToken(
     return {
       token: {
         type: "REST",
-        raw,
+        raw: originalRaw,
         index,
-        lyricSlots: 0
+        lyricSlots: 0,
+        hasFermata
       },
       issues: []
     };
@@ -554,8 +567,8 @@ function parseStandaloneToken(
       token: null,
       issues: [{
         code: "INVALID_TOKEN",
-        message: `Invalid notation token: ${raw}`,
-        raw,
+        message: `Invalid notation token: ${originalRaw}`,
+        raw: originalRaw,
         index
       }]
     };
@@ -582,14 +595,15 @@ function parseStandaloneToken(
   return {
     token: {
       type: "NOTE",
-      raw,
+      raw: originalRaw,
       index,
       accidental: accidentalPart ? (accidentalPart as "#" | "b") : undefined,
       degree,
       octave: octaveValue(octavePart),
       shortDurationLevel: shortDurationPart.length,
       holdCount: holdPart.length,
-      lyricSlots: 1
+      lyricSlots: 1,
+      hasFermata
     },
     issues: []
   };
@@ -654,13 +668,13 @@ function renderToken(
     case "NOTE":
       return renderNoteToken(token, x, beamDepth, theme, metrics);
     case "REST":
-      return renderRestToken(x, theme, metrics);
+      return renderRestToken(token, x, theme, metrics);
     case "BAR":
       return renderBarToken(x, theme, metrics);
     case "DOUBLE_BAR":
       return renderDoubleBarToken(x, theme, metrics);
     case "EXTENSION":
-      return renderExtensionToken(x, theme, metrics);
+      return renderExtensionToken(token, x, theme, metrics);
     case "SLUR":
       return renderSlurToken(token, x, beamDepth, theme, metrics, syllables);
     case "BEAM":
@@ -729,6 +743,16 @@ function renderNoteToken(
     markup.push(`<line x1="${x1}" y1="${metrics.baselineY}" x2="${x1 + 4 * metrics.scale}" y2="${metrics.baselineY}" stroke="#${theme.notationText}" stroke-width="${1.3 * metrics.scale}" stroke-linecap="round" />`);
   }
 
+  if (token.hasFermata) {
+    const rx = 5 * metrics.scale;
+    const ry = 4 * metrics.scale;
+    const cy = metrics.fermataY + 2 * metrics.scale;
+    markup.push(
+      `<path d="M ${centerX - rx} ${cy} Q ${centerX} ${metrics.fermataY - ry} ${centerX + rx} ${cy}" fill="none" stroke="#${theme.notationText}" stroke-width="${1.2 * metrics.scale}" />`,
+      `<circle cx="${centerX}" cy="${cy - 1.5 * metrics.scale}" r="${1.2 * metrics.scale}" fill="#${theme.notationText}" />`
+    );
+  }
+
   return {
     width: metrics.noteWidth,
     markup,
@@ -737,13 +761,25 @@ function renderNoteToken(
   };
 }
 
-function renderRestToken(x: number, theme: RenderTheme, metrics: RenderMetrics): RenderedToken {
+function renderRestToken(token: NotationRestToken, x: number, theme: RenderTheme, metrics: RenderMetrics): RenderedToken {
   const centerX = x + metrics.restWidth / 2;
+  const markup: string[] = [
+    `<text x="${centerX}" y="${metrics.baselineY}" text-anchor="middle" dominant-baseline="middle" font-family="Aptos, Arial, sans-serif" font-size="${metrics.restFontSize}" font-weight="700" fill="#${theme.notationText}" opacity="0.7">0</text>`
+  ];
+
+  if (token.hasFermata) {
+    const rx = 5 * metrics.scale;
+    const ry = 4 * metrics.scale;
+    const cy = metrics.fermataY + 2 * metrics.scale;
+    markup.push(
+      `<path d="M ${centerX - rx} ${cy} Q ${centerX} ${metrics.fermataY - ry} ${centerX + rx} ${cy}" fill="none" stroke="#${theme.notationText}" stroke-width="${1.2 * metrics.scale}" />`,
+      `<circle cx="${centerX}" cy="${cy - 1.5 * metrics.scale}" r="${1.2 * metrics.scale}" fill="#${theme.notationText}" />`
+    );
+  }
+
   return {
     width: metrics.restWidth,
-    markup: [
-      `<text x="${centerX}" y="${metrics.baselineY}" text-anchor="middle" dominant-baseline="middle" font-family="Aptos, Arial, sans-serif" font-size="${metrics.restFontSize}" font-weight="700" fill="#${theme.notationText}" opacity="0.7">0</text>`
-    ],
+    markup,
     slotAnchors: [],
     firstNoteAnchor: null
   };
@@ -776,13 +812,25 @@ function renderDoubleBarToken(x: number, theme: RenderTheme, metrics: RenderMetr
   };
 }
 
-function renderExtensionToken(x: number, theme: RenderTheme, metrics: RenderMetrics): RenderedToken {
+function renderExtensionToken(token: NotationExtensionToken, x: number, theme: RenderTheme, metrics: RenderMetrics): RenderedToken {
   const centerX = x + metrics.extensionWidth / 2;
+  const markup: string[] = [
+    `<circle cx="${centerX}" cy="${metrics.extensionDotY}" r="${Math.max(1.8, 2 * metrics.scale)}" fill="#${theme.notationText}" />`
+  ];
+
+  if (token.hasFermata) {
+    const rx = 5 * metrics.scale;
+    const ry = 4 * metrics.scale;
+    const cy = metrics.fermataY + 2 * metrics.scale;
+    markup.push(
+      `<path d="M ${centerX - rx} ${cy} Q ${centerX} ${metrics.fermataY - ry} ${centerX + rx} ${cy}" fill="none" stroke="#${theme.notationText}" stroke-width="${1.2 * metrics.scale}" />`,
+      `<circle cx="${centerX}" cy="${cy - 1.5 * metrics.scale}" r="${1.2 * metrics.scale}" fill="#${theme.notationText}" />`
+    );
+  }
+
   return {
     width: metrics.extensionWidth,
-    markup: [
-      `<circle cx="${centerX}" cy="${metrics.extensionDotY}" r="${Math.max(1.8, 2 * metrics.scale)}" fill="#${theme.notationText}" />`
-    ],
+    markup,
     slotAnchors: [],
     firstNoteAnchor: null
   };

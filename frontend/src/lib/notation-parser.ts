@@ -16,6 +16,7 @@ type NotationTokenBase = {
   raw: string;
   index: number;
   lyricSlots: number;
+  hasFermata?: boolean;
 };
 
 export type NotationNoteToken = NotationTokenBase & {
@@ -303,17 +304,26 @@ function parseGroup(
 }
 
 function parseStandaloneToken(
-  raw: string,
+  originalRaw: string,
   index: number,
   options: { allowRest: boolean }
 ): { token: NotationNoteToken | NotationRestToken | NotationExtensionToken | null; issues: NotationParserIssue[] } {
+  let raw = originalRaw;
+  let hasFermata = false;
+
+  if (raw.endsWith("^")) {
+    hasFermata = true;
+    raw = raw.slice(0, -1);
+  }
+
   if (raw === ".") {
     return {
       token: {
         type: "EXTENSION",
-        raw,
+        raw: originalRaw,
         index,
-        lyricSlots: 0
+        lyricSlots: 0,
+        hasFermata
       },
       issues: []
     };
@@ -335,9 +345,10 @@ function parseStandaloneToken(
     return {
       token: {
         type: "REST",
-        raw,
+        raw: originalRaw,
         index,
-        lyricSlots: 0
+        lyricSlots: 0,
+        hasFermata
       },
       issues: []
     };
@@ -349,8 +360,8 @@ function parseStandaloneToken(
       token: null,
       issues: [{
         code: "INVALID_TOKEN",
-        message: `Invalid notation token: ${raw}`,
-        raw,
+        message: `Invalid notation token: ${originalRaw}`,
+        raw: originalRaw,
         index
       }]
     };
@@ -377,14 +388,15 @@ function parseStandaloneToken(
   return {
     token: {
       type: "NOTE",
-      raw,
+      raw: originalRaw,
       index,
       accidental: accidentalPart ? (accidentalPart as "#" | "b") : undefined,
       degree,
       octave: octaveValue(octavePart),
       shortDurationLevel: shortDurationPart.length,
       holdCount: holdPart.length,
-      lyricSlots: 1
+      lyricSlots: 1,
+      hasFermata
     },
     issues: []
   };

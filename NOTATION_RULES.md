@@ -4,13 +4,14 @@ Aturan ini dibuat sebagai pedoman mutlak (SSOT) bagi agen AI untuk merender atau
 
 ## 1. Urutan Hierarki Posisi (Y-Axis)
 Dari posisi paling ATAS hingga BAWAH, urutan elemen dalam satu baris notasi **wajib** mengikuti struktur ini:
-1. **Garis Bendera Panjang (Primary Beam)**: `beamLevelOneY`. Berada pada titik tertinggi (nilai Y paling kecil).
-2. **Garis Bendera Pendek (Secondary Beam)**: `beamLevelTwoY`. Berada tepat di bawah garis bendera panjang.
-3. **Titik Oktaf Tinggi (Top Dot)**: `topDotY` / `topDotYBeamed`. Harus berada di bawah semua garis bendera, tetapi di atas angka notasi. Jarak titik tidak boleh terlalu jauh dari angka agar jelas kepemilikannya.
-4. **Teks Angka Notasi**: `baselineY`. Berada di tengah area notasi.
-5. **Titik Oktaf Rendah (Bottom Dot)**: `bottomDotY`. Berada di bawah teks angka.
-6. **Garis Slur (Legato)**: `slurBaseY`. Ditempatkan di bawah angka dan titik bawah (melengkung ke bawah seperti mangkuk).
-7. **Teks Lirik**: `lyricBaselineY`. Lirik lagu yang diposisikan di baris terbawah.
+1. **Fermata (Permata/Tahan)**: `fermataY`. Merupakan puncak absolut (Level 0), diletakkan di atas semua elemen lainnya.
+2. **Garis Bendera Panjang (Primary Beam)**: `beamLevelOneY`. Berada pada titik tertinggi kedua (nilai Y lebih besar dari fermata).
+3. **Garis Bendera Pendek (Secondary Beam)**: `beamLevelTwoY`. Berada tepat di bawah garis bendera panjang.
+4. **Titik Oktaf Tinggi (Top Dot)**: `topDotY` / `topDotYBeamed`. Harus berada di bawah semua garis bendera, tetapi di atas angka notasi. Jarak titik tidak boleh terlalu jauh dari angka agar jelas kepemilikannya.
+5. **Teks Angka Notasi**: `baselineY`. Berada di tengah area notasi.
+6. **Titik Oktaf Rendah (Bottom Dot)**: `bottomDotY`. Berada di bawah teks angka.
+7. **Garis Slur (Legato)**: `slurBaseY`. Ditempatkan di bawah angka dan titik bawah (melengkung ke bawah seperti mangkuk).
+8. **Teks Lirik**: `lyricBaselineY`. Lirik lagu yang diposisikan di baris terbawah.
 
 ## 2. Tanda Pemisah Bar (Bar Line)
 - Tanda pemisah bar (seperti `|` atau `||`) harus di-render memanjang menutupi rentang tinggi angka notasi.
