@@ -888,9 +888,19 @@ function renderBeamToken(
   syllables?: Map<NotationToken, string>
 ): RenderedToken {
   const nextBeamDepth = Math.min(beamDepth + 1, 2);
-  const children = renderTokenSequence(token.children, x, nextBeamDepth, theme, metrics, syllables);
-  const width = Math.max(children.width, metrics.noteWidth);
-  const beamY = nextBeamDepth === 1 ? metrics.beamLevelOneY : metrics.beamLevelTwoY;
+  let dynamicMetrics = metrics;
+
+  if (nextBeamDepth === 1 && !hasHighElements(token.children)) {
+    dynamicMetrics = {
+      ...metrics,
+      beamLevelOneY: metrics.beamLevelOneY + 12 * metrics.scale,
+      beamLevelTwoY: metrics.beamLevelTwoY + 12 * metrics.scale
+    };
+  }
+
+  const children = renderTokenSequence(token.children, x, nextBeamDepth, theme, dynamicMetrics, syllables);
+  const width = Math.max(children.width, dynamicMetrics.noteWidth);
+  const beamY = nextBeamDepth === 1 ? dynamicMetrics.beamLevelOneY : dynamicMetrics.beamLevelTwoY;
   
   const startX = children.firstNoteAnchor !== null ? children.firstNoteAnchor : x + 2 * metrics.scale;
   // approximate the right anchor symmetrically
@@ -962,6 +972,18 @@ function findFirstRenderableNote(tokens: readonly NotationToken[]): NotationNote
   }
 
   return null;
+}
+
+function hasHighElements(tokens: readonly NotationToken[]): boolean {
+  for (const token of tokens) {
+    if (token.type === "NOTE" && token.octave > 0) {
+      return true;
+    }
+    if ((token.type === "SLUR" || token.type === "BEAM") && hasHighElements(token.children)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function resolveLyricPlacements(
