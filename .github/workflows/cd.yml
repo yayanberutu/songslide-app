@@ -44,7 +44,17 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
           
       # Backend
-      - name: Build and push Backend
+      - name: Set up Go for Backend Build
+        if: ${{ needs.changes.outputs.backend == 'true' }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.x'
+          
+      - name: Compile Backend Binary
+        if: ${{ needs.changes.outputs.backend == 'true' }}
+        run: cd backend-go && CGO_ENABLED=0 GOOS=linux go build -o backend-go ./cmd/api
+        
+      - name: Build and push Backend Docker Image
         if: ${{ needs.changes.outputs.backend == 'true' }}
         uses: docker/build-push-action@v5
         with:
