@@ -100,10 +100,10 @@ jobs:
             # echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             
             # Pull image terbaru yang baru saja di-push
-            docker compose pull
+            docker compose -f docker-compose.prod.yml pull
             
             # Restart service yang menggunakan image baru (tanpa downtime yang signifikan)
-            docker compose up -d
+            docker compose -f docker-compose.prod.yml up -d
             
             # Bersihkan image lama untuk menghemat disk
             docker image prune -f
