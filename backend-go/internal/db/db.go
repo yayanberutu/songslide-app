@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/yayanberutu/songslide/backend-go/internal/config"
+	"github.com/yayanberutu/songslide/backend-go/internal/song"
 	"github.com/yayanberutu/songslide/backend-go/internal/user"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -33,9 +34,12 @@ func InitDB() {
 	log.Println("Connected to PostgreSQL database successfully.")
 
 	// Auto-migrate the user table
-	err = DB.AutoMigrate(&user.User{})
+	err = DB.AutoMigrate(
+		&user.User{},
+		&song.Song{},
+	)
 	if err != nil {
-		log.Printf("Failed to auto-migrate User table: %v", err)
+		log.Printf("Failed to auto-migrate tables: %v", err)
 	} else {
 		seedAdminUser()
 		seedMultimediaUser()

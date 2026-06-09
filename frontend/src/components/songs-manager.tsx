@@ -27,6 +27,7 @@ type SongFormState = {
   tempo: string;
   authorText: string;
   sourceNote: string;
+  notationSourceSongId: string;
 };
 
 const emptySongForm: SongFormState = {
@@ -37,7 +38,8 @@ const emptySongForm: SongFormState = {
   timeSignature: "",
   tempo: "",
   authorText: "",
-  sourceNote: ""
+  sourceNote: "",
+  notationSourceSongId: ""
 };
 
 const emptyFilters: SongSearchParams = {
@@ -52,6 +54,7 @@ export function SongsManager() {
   const router = useRouter();
   const [songBooks, setSongBooks] = useState<SongBook[]>([]);
   const [songs, setSongs] = useState<Song[]>([]);
+  const [sourceCandidates, setSourceCandidates] = useState<Song[]>([]);
   const [filters, setFilters] = useState<SongSearchParams>(emptyFilters);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -66,9 +69,10 @@ export function SongsManager() {
   const { data: session } = useSession();
   const isAdmin = session?.user?.role === "ADMIN";
 
-  // Load books on mount
+  // Load books and source candidates on mount
   useEffect(() => {
     void loadBooks();
+    listSongs({ limit: 1000 }).then(res => setSourceCandidates(res.items)).catch(console.error);
   }, []);
 
   // Debounced search
@@ -157,7 +161,8 @@ export function SongsManager() {
       timeSignature: song.timeSignature ?? "",
       tempo: song.tempo?.toString() ?? "",
       authorText: song.authorText ?? "",
-      sourceNote: song.sourceNote ?? ""
+      sourceNote: song.sourceNote ?? "",
+      notationSourceSongId: song.notationSourceSongId ?? ""
     });
     setFormError(null);
     setIsModalOpen(true);
@@ -400,6 +405,24 @@ export function SongsManager() {
               />
             </Field>
             <div className="md:col-span-2">
+              <Field label="Sumber Notasi (Opsional)">
+                <SelectInput
+                  value={form.notationSourceSongId}
+                  onChange={(event) => setForm((current) => ({ ...current, notationSourceSongId: event.target.value }))}
+                >
+                  <option value="">-- Tidak ada (Tulis sendiri) --</option>
+                  {sourceCandidates.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.songBook.code} {s.songNumber} - {s.title}
+                    </option>
+                  ))}
+                </SelectInput>
+              </Field>
+              <p className="mt-1 text-xs text-ink-500">
+                Pilih lagu lain jika notasi lagu ini ingin disinkronkan sepenuhnya dari lagu tersebut.
+              </p>
+            </div>
+            <div className="md:col-span-2">
               <Field label="Source note">
                 <TextArea
                   value={form.sourceNote}
@@ -432,7 +455,8 @@ function toSongPayload(form: SongFormState): SongPayload {
     timeSignature: emptyToNull(form.timeSignature),
     tempo: form.tempo.trim() ? Number(form.tempo) : null,
     authorText: emptyToNull(form.authorText),
-    sourceNote: emptyToNull(form.sourceNote)
+    sourceNote: emptyToNull(form.sourceNote),
+    notationSourceSongId: emptyToNull(form.notationSourceSongId)
   };
 }
 
