@@ -106,6 +106,11 @@ jobs:
             # Pindah ke direktori project
             cd /home/admin/apps/songslide
             
+            # Update file docker-compose.prod.yml ke versi terbaru dari repository
+            curl -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                 -H "Accept: application/vnd.github.v3.raw" \
+                 -O -L https://api.github.com/repos/${{ github.repository }}/contents/docker-compose.prod.yml?ref=main
+            
             # Jika repository private, perlu login ke GHCR dulu di VPS:
             # echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             
