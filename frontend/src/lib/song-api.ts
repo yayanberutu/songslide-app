@@ -25,6 +25,13 @@ export type SongBookSummary = {
   name: string;
 };
 
+export type NotationSourceSongSummary = {
+  id: string;
+  bookCode: string;
+  songNumber: string;
+  title: string;
+};
+
 export type Song = {
   id: string;
   songNumber: string;
@@ -35,6 +42,8 @@ export type Song = {
   authorText: string | null;
   sourceNote: string | null;
   songBook: SongBookSummary;
+  notationSourceSongId?: string | null;
+  notationSourceSong?: NotationSourceSongSummary | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -49,6 +58,7 @@ export type SongPayload = {
   tempo?: number | null;
   authorText?: string | null;
   sourceNote?: string | null;
+  notationSourceSongId?: string | null;
 };
 
 export type SongSearchParams = {

@@ -59,6 +59,12 @@ func (h *Handler) CreateDefault(c *gin.Context) {
 	err = h.db.First(&arr, "song_id = ? AND is_default = ?", songId, true).Error
 	if err == nil {
 		// Already exists, return it
+		if s.NotationSourceSongID != nil {
+			var sourceArr SongArrangement
+			if err := h.db.First(&sourceArr, "song_id = ? AND is_default = ?", s.NotationSourceSongID, true).Error; err == nil {
+				arr.ContentJson = MergeNotation(arr.ContentJson, sourceArr.ContentJson)
+			}
+		}
 		c.JSON(http.StatusOK, api.Success(arr.ToResponse()))
 		return
 	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -85,6 +91,13 @@ func (h *Handler) CreateDefault(c *gin.Context) {
 	if err := h.db.Create(&arr).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, api.Failed(http.StatusInternalServerError, err.Error()))
 		return
+	}
+
+	if s.NotationSourceSongID != nil {
+		var sourceArr SongArrangement
+		if err := h.db.First(&sourceArr, "song_id = ? AND is_default = ?", s.NotationSourceSongID, true).Error; err == nil {
+			arr.ContentJson = MergeNotation(arr.ContentJson, sourceArr.ContentJson)
+		}
 	}
 
 	c.JSON(http.StatusOK, api.Success(arr.ToResponse()))
@@ -119,7 +132,94 @@ func (h *Handler) GetDefault(c *gin.Context) {
 		return
 	}
 
+	if s.NotationSourceSongID != nil {
+		var sourceArr SongArrangement
+		if err := h.db.First(&sourceArr, "song_id = ? AND is_default = ?", s.NotationSourceSongID, true).Error; err == nil {
+			arr.ContentJson = MergeNotation(arr.ContentJson, sourceArr.ContentJson)
+		}
+	}
+
 	c.JSON(http.StatusOK, api.Success(arr.ToResponse()))
+}
+
+func MergeNotation(targetJson []byte, sourceJson []byte) []byte {
+	var target map[string]interface{}
+	var source map[string]interface{}
+
+	if err := json.Unmarshal(targetJson, &target); err != nil {
+		return targetJson
+	}
+	if err := json.Unmarshal(sourceJson, &source); err != nil {
+		return targetJson
+	}
+
+	targetSections, _ := target["sections"].([]interface{})
+	sourceSections, okS := source["sections"].([]interface{})
+	if !okS {
+		return targetJson
+	}
+
+	for i, sSecInt := range sourceSections {
+		sSec, okS2 := sSecInt.(map[string]interface{})
+		if !okS2 {
+			continue
+		}
+
+		var tSec map[string]interface{}
+		if i < len(targetSections) {
+			tSec, _ = targetSections[i].(map[string]interface{})
+		}
+
+		sLines, okS3 := sSec["lines"].([]interface{})
+		if !okS3 {
+			continue
+		}
+
+		var tLines []interface{}
+		if tSec != nil {
+			tLines, _ = tSec["lines"].([]interface{})
+		}
+
+		for j, sLineInt := range sLines {
+			sLine, okS4 := sLineInt.(map[string]interface{})
+			if !okS4 {
+				continue
+			}
+
+			// Clear source lyrics so they don't bleed into the target song
+			delete(sLine, "lyric")
+			
+			if sLyrics, ok := sLine["lyricsByVerse"].(map[string]interface{}); ok {
+				emptyLyrics := make(map[string]interface{})
+				for k := range sLyrics {
+					emptyLyrics[k] = ""
+				}
+				sLine["lyricsByVerse"] = emptyLyrics
+			} else {
+				delete(sLine, "lyricsByVerse")
+			}
+
+			// Inject lyrics from target if they exist
+			if j < len(tLines) {
+				if tLine, okT4 := tLines[j].(map[string]interface{}); okT4 {
+					if lyric, exists := tLine["lyric"]; exists {
+						sLine["lyric"] = lyric
+					}
+					if lyricsByVerse, exists := tLine["lyricsByVerse"]; exists {
+						sLine["lyricsByVerse"] = lyricsByVerse
+					}
+				}
+			}
+		}
+	}
+
+	source["sections"] = sourceSections
+
+	mergedJson, err := json.Marshal(source)
+	if err != nil {
+		return targetJson
+	}
+	return mergedJson
 }
 
 func (h *Handler) Get(c *gin.Context) {
@@ -131,13 +231,20 @@ func (h *Handler) Get(c *gin.Context) {
 	}
 
 	var arr SongArrangement
-	if err := h.db.First(&arr, "id = ?", arrId).Error; err != nil {
+	if err := h.db.Preload("Song").First(&arr, "id = ?", arrId).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			c.JSON(http.StatusNotFound, api.Failed(http.StatusNotFound, "Arrangement not found"))
 			return
 		}
 		c.JSON(http.StatusInternalServerError, api.Failed(http.StatusInternalServerError, err.Error()))
 		return
+	}
+
+	if arr.Song.NotationSourceSongID != nil {
+		var sourceArr SongArrangement
+		if err := h.db.First(&sourceArr, "song_id = ? AND is_default = ?", arr.Song.NotationSourceSongID, true).Error; err == nil {
+			arr.ContentJson = MergeNotation(arr.ContentJson, sourceArr.ContentJson)
+		}
 	}
 
 	c.JSON(http.StatusOK, api.Success(arr.ToResponse()))

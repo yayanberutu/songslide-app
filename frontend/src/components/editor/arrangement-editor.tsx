@@ -194,6 +194,11 @@ export function ArrangementEditor({ songId }: ArrangementEditorProps) {
           </div>
 
           <InlineError message={saveError} />
+          {song?.notationSourceSongId ? (
+            <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              ⚠️ Notasi lagu ini disinkronkan dari lagu: <strong>{song.notationSourceSong?.bookCode} {song.notationSourceSong?.songNumber} - {song.notationSourceSong?.title}</strong>. Anda hanya dapat mengubah lirik.
+            </div>
+          ) : null}
           {savedMessage ? (
             <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
               {savedMessage}
@@ -212,6 +217,7 @@ export function ArrangementEditor({ songId }: ArrangementEditorProps) {
                 onChange={(nextSection) => updateSection(index, nextSection)}
                 onDelete={() => deleteSection(index)}
                 onMove={(direction) => moveSection(index, direction)}
+                isNotationReadOnly={!!song?.notationSourceSongId}
               />
             ))
           )}
@@ -238,9 +244,10 @@ type SectionEditorProps = {
   onChange: (section: ArrangementSection) => void;
   onDelete: () => void;
   onMove: (direction: -1 | 1) => void;
+  isNotationReadOnly?: boolean;
 };
 
-function SectionEditor({ section, index, totalSections, onChange, onDelete, onMove }: SectionEditorProps) {
+function SectionEditor({ section, index, totalSections, onChange, onDelete, onMove, isNotationReadOnly }: SectionEditorProps) {
   return (
     <article className="space-y-4 rounded-md border border-zinc-200 bg-white p-4">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -265,10 +272,10 @@ function SectionEditor({ section, index, totalSections, onChange, onDelete, onMo
       </div>
 
       {section.type === "VERSE" ? (
-        <VerseSectionEditor section={section} onChange={onChange} />
+        <VerseSectionEditor section={section} onChange={onChange} isNotationReadOnly={isNotationReadOnly} />
       ) : null}
       {section.type === "REFRAIN" ? (
-        <RefrainSectionEditor section={section} onChange={onChange} />
+        <RefrainSectionEditor section={section} onChange={onChange} isNotationReadOnly={isNotationReadOnly} />
       ) : null}
       {section.type === "TEXT_ONLY_VERSES" ? (
         <TextOnlyVersesEditor section={section} onChange={onChange} />
@@ -279,10 +286,12 @@ function SectionEditor({ section, index, totalSections, onChange, onDelete, onMo
 
 function VerseSectionEditor({
   section,
-  onChange
+  onChange,
+  isNotationReadOnly
 }: {
   section: VerseSection;
   onChange: (section: ArrangementSection) => void;
+  isNotationReadOnly?: boolean;
 }) {
   const verseNumbers = collectVerseNumbers(section);
   const [newVerseNumber, setNewVerseNumber] = useState("");
@@ -382,6 +391,7 @@ function VerseSectionEditor({
                     value={line.notation ?? ""}
                     onChange={(event) => updateLine(index, { ...line, notation: event.target.value })}
                     placeholder="5 .6 5 5 6 | 1 .2 1 .6"
+                    disabled={isNotationReadOnly}
                   />
                 </Field>
                 <div className="grid gap-3 md:grid-cols-2">
@@ -427,10 +437,12 @@ function VerseSectionEditor({
 
 function RefrainSectionEditor({
   section,
-  onChange
+  onChange,
+  isNotationReadOnly
 }: {
   section: RefrainSection;
   onChange: (section: ArrangementSection) => void;
+  isNotationReadOnly?: boolean;
 }) {
   function updateLines(lines: RefrainLine[]) {
     onChange({
@@ -468,6 +480,7 @@ function RefrainSectionEditor({
                     value={line.notation ?? ""}
                     onChange={(event) => updateLine(index, { ...line, notation: event.target.value })}
                     placeholder="1 .2 3 3 2 | 3...0"
+                    disabled={isNotationReadOnly}
                   />
                 </Field>
                 <Field label="Refrain lyric">

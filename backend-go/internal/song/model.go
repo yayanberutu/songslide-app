@@ -17,10 +17,12 @@ type Song struct {
 	KeySignature  *string           `gorm:"type:varchar(32)"`
 	TimeSignature *string           `gorm:"type:varchar(32)"`
 	TempoBpm      *int              `gorm:""`
-	Author        *string           `gorm:"type:text"`
-	Notes         *string           `gorm:"type:text"`
-	CreatedAt     time.Time         `gorm:"not null"`
-	UpdatedAt     time.Time         `gorm:"not null"`
+	Author               *string           `gorm:"type:text"`
+	Notes                *string           `gorm:"type:text"`
+	NotationSourceSongID *uuid.UUID        `gorm:"type:uuid"`
+	NotationSourceSong   *Song             `gorm:"foreignKey:NotationSourceSongID"`
+	CreatedAt            time.Time         `gorm:"not null"`
+	UpdatedAt            time.Time         `gorm:"not null"`
 }
 
 func (s *Song) BeforeCreate(tx *gorm.DB) (err error) {
@@ -31,15 +33,16 @@ func (s *Song) BeforeCreate(tx *gorm.DB) (err error) {
 }
 
 type SongRequest struct {
-	SongBookID    *uuid.UUID `json:"songBookId"`
-	BookCode      string     `json:"bookCode" binding:"omitempty,max=16"`
-	SongNumber    string     `json:"songNumber" binding:"required,max=32"`
-	Title         string     `json:"title" binding:"required,max=255"`
-	DefaultKey    string     `json:"defaultKey" binding:"omitempty,max=32"`
-	TimeSignature string     `json:"timeSignature" binding:"omitempty,max=32"`
-	Tempo         *int       `json:"tempo" binding:"omitempty,min=1"`
-	AuthorText    string     `json:"authorText" binding:"omitempty,max=255"`
-	SourceNote    string     `json:"sourceNote"`
+	SongBookID           *uuid.UUID `json:"songBookId"`
+	BookCode             string     `json:"bookCode" binding:"omitempty,max=16"`
+	SongNumber           string     `json:"songNumber" binding:"required,max=32"`
+	Title                string     `json:"title" binding:"required,max=255"`
+	DefaultKey           string     `json:"defaultKey" binding:"omitempty,max=32"`
+	TimeSignature        string     `json:"timeSignature" binding:"omitempty,max=32"`
+	Tempo                *int       `json:"tempo" binding:"omitempty,min=1"`
+	AuthorText           string     `json:"authorText" binding:"omitempty,max=255"`
+	SourceNote           string     `json:"sourceNote"`
+	NotationSourceSongID *uuid.UUID `json:"notationSourceSongId" binding:"omitempty"`
 }
 
 type SongBookSummaryResponse struct {
@@ -48,22 +51,31 @@ type SongBookSummaryResponse struct {
 	Name string    `json:"name"`
 }
 
+type NotationSourceSongSummaryResponse struct {
+	ID         uuid.UUID `json:"id"`
+	BookCode   string    `json:"bookCode"`
+	SongNumber string    `json:"songNumber"`
+	Title      string    `json:"title"`
+}
+
 type SongResponse struct {
-	ID            uuid.UUID               `json:"id"`
-	SongNumber    string                  `json:"songNumber"`
-	Title         string                  `json:"title"`
-	DefaultKey    *string                 `json:"defaultKey"`
-	TimeSignature *string                 `json:"timeSignature"`
-	Tempo         *int                    `json:"tempo"`
-	AuthorText    *string                 `json:"authorText"`
-	SourceNote    *string                 `json:"sourceNote"`
-	SongBook      SongBookSummaryResponse `json:"songBook"`
-	CreatedAt     time.Time               `json:"createdAt"`
-	UpdatedAt     time.Time               `json:"updatedAt"`
+	ID                   uuid.UUID                          `json:"id"`
+	SongNumber           string                             `json:"songNumber"`
+	Title                string                             `json:"title"`
+	DefaultKey           *string                            `json:"defaultKey"`
+	TimeSignature        *string                            `json:"timeSignature"`
+	Tempo                *int                               `json:"tempo"`
+	AuthorText           *string                            `json:"authorText"`
+	SourceNote           *string                            `json:"sourceNote"`
+	NotationSourceSongID *uuid.UUID                         `json:"notationSourceSongId"`
+	NotationSourceSong   *NotationSourceSongSummaryResponse `json:"notationSourceSong"`
+	SongBook             SongBookSummaryResponse            `json:"songBook"`
+	CreatedAt            time.Time                          `json:"createdAt"`
+	UpdatedAt            time.Time                          `json:"updatedAt"`
 }
 
 func (s *Song) ToResponse() SongResponse {
-	return SongResponse{
+	resp := SongResponse{
 		ID:            s.ID,
 		SongNumber:    s.SongNumber,
 		Title:         s.Title,
@@ -79,7 +91,19 @@ func (s *Song) ToResponse() SongResponse {
 		},
 		CreatedAt: s.CreatedAt,
 		UpdatedAt: s.UpdatedAt,
+		NotationSourceSongID: s.NotationSourceSongID,
 	}
+
+	if s.NotationSourceSong != nil {
+		resp.NotationSourceSong = &NotationSourceSongSummaryResponse{
+			ID:         s.NotationSourceSong.ID,
+			BookCode:   s.NotationSourceSong.SongBook.Code,
+			SongNumber: s.NotationSourceSong.SongNumber,
+			Title:      s.NotationSourceSong.Title,
+		}
+	}
+
+	return resp
 }
 
 type DeleteSongResponse struct {

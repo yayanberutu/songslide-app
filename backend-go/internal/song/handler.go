@@ -67,9 +67,10 @@ func (h *Handler) Create(c *gin.Context) {
 		Title:         req.Title,
 		KeySignature:  ptrStr(req.DefaultKey),
 		TimeSignature: ptrStr(req.TimeSignature),
-		TempoBpm:      req.Tempo,
-		Author:        ptrStr(req.AuthorText),
-		Notes:         ptrStr(req.SourceNote),
+		TempoBpm:             req.Tempo,
+		Author:               ptrStr(req.AuthorText),
+		Notes:                ptrStr(req.SourceNote),
+		NotationSourceSongID: req.NotationSourceSongID,
 	}
 
 	if err := h.db.Create(&song).Error; err != nil {
@@ -120,7 +121,7 @@ func (h *Handler) List(c *gin.Context) {
 
 	var songs []Song
 	offset := (page - 1) * limit
-	if err := query.Preload("SongBook").
+	if err := query.Preload("SongBook").Preload("NotationSourceSong").Preload("NotationSourceSong.SongBook").
 		Order("song_books.code ASC").
 		Order("NULLIF(regexp_replace(songs.song_number, '\\D', '', 'g'), '')::int ASC").
 		Order("songs.song_number ASC").
@@ -151,7 +152,7 @@ func (h *Handler) Get(c *gin.Context) {
 	}
 
 	var s Song
-	if err := h.db.Preload("SongBook").First(&s, "id = ?", id).Error; err != nil {
+	if err := h.db.Preload("SongBook").Preload("NotationSourceSong").Preload("NotationSourceSong.SongBook").First(&s, "id = ?", id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			c.JSON(http.StatusNotFound, api.Failed(http.StatusNotFound, "Song not found"))
 			return
@@ -210,6 +211,7 @@ func (h *Handler) Update(c *gin.Context) {
 	s.TempoBpm = req.Tempo
 	s.Author = ptrStr(req.AuthorText)
 	s.Notes = ptrStr(req.SourceNote)
+	s.NotationSourceSongID = req.NotationSourceSongID
 
 	if err := h.db.Save(&s).Error; err != nil {
 		c.JSON(http.StatusConflict, api.Failed(http.StatusConflict, "Failed to update song"))
@@ -217,7 +219,7 @@ func (h *Handler) Update(c *gin.Context) {
 	}
 
 	// Reload to get updated SongBook relation
-	h.db.Preload("SongBook").First(&s, "id = ?", s.ID)
+	h.db.Preload("SongBook").Preload("NotationSourceSong").Preload("NotationSourceSong.SongBook").First(&s, "id = ?", s.ID)
 
 	c.JSON(http.StatusOK, api.Success(s.ToResponse()))
 }
