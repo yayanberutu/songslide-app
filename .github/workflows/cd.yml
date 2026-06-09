@@ -1,0 +1,109 @@
+name: CD
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      export_service: ${{ steps.filter.outputs.export_service }}
+      ocr_service: ${{ steps.filter.outputs.ocr_service }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend-go/**'
+            frontend:
+              - 'frontend/**'
+            export_service:
+              - 'export-service/**'
+            ocr_service:
+              - 'ocr-service/**'
+
+  build-and-push:
+    needs: changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          
+      # Backend
+      - name: Build and push Backend
+        if: ${{ needs.changes.outputs.backend == 'true' }}
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend-go
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/songslide-backend:latest
+          
+      # Frontend
+      - name: Build and push Frontend
+        if: ${{ needs.changes.outputs.frontend == 'true' }}
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/songslide-frontend:latest
+          build-args: |
+            BACKEND_INTERNAL_URL=http://songslide-backend:8080/api
+            NEXT_PUBLIC_API_BASE_URL=${{ secrets.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/api' }}
+
+      # Export Service
+      - name: Build and push Export Service
+        if: ${{ needs.changes.outputs.export_service == 'true' }}
+        uses: docker/build-push-action@v5
+        with:
+          context: ./export-service
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/songslide-export-service:latest
+
+      # OCR Service
+      - name: Build and push OCR Service
+        if: ${{ needs.changes.outputs.ocr_service == 'true' }}
+        uses: docker/build-push-action@v5
+        with:
+          context: ./ocr-service
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/songslide-ocr-service:latest
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            # Pindah ke direktori project
+            cd /home/admin/apps/songslide
+            
+            # Jika repository private, perlu login ke GHCR dulu di VPS:
+            # echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            
+            # Pull image terbaru yang baru saja di-push
+            docker compose pull
+            
+            # Restart service yang menggunakan image baru (tanpa downtime yang signifikan)
+            docker compose up -d
+            
+            # Bersihkan image lama untuk menghemat disk
+            docker image prune -f
