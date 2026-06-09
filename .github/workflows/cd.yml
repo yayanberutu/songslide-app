@@ -103,6 +103,7 @@ jobs:
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
+            set -e
             # Pindah ke direktori project
             cd /home/admin/apps/songslide
             
@@ -111,8 +112,8 @@ jobs:
                  -H "Accept: application/vnd.github.v3.raw" \
                  -O -L https://api.github.com/repos/${{ github.repository }}/contents/docker-compose.prod.yml?ref=main
             
-            # Jika repository private, perlu login ke GHCR dulu di VPS:
-            # echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            # Login ke GHCR di VPS untuk pull private images
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             
             # Pull image terbaru yang baru saja di-push
             docker compose -f docker-compose.prod.yml pull
