@@ -14,7 +14,8 @@ export type NotationParserIssue = {
 
 type NotationTokenBase = {
   raw: string;
-  index: number;
+  index: number; // The 0-based character index where this token starts in the line
+  globalNoteIndex?: number; // Optional sequentially assigned index for playback highlighting
   lyricSlots: number;
   hasFermata?: boolean;
 };
@@ -95,11 +96,80 @@ const closingTokenNames: Record<")" | "]", string> = {
   "]": "bracket"
 };
 
+export function normalizeLegacyNotation(input: string): string {
+  if (!input) return "";
+  let s = input.replace(/•/g, ".");
+  
+  let result = "";
+  let currentBeamLevel = 0;
+  
+  const tokens = s.split(/(\s+|\|)/);
+  for (let i = 0; i < tokens.length; i++) {
+    let token = tokens[i];
+    if (token.trim() === "" || token === "|") {
+      result += token;
+      continue;
+    }
+    
+    let beamLevel = 0;
+    if (token.includes('\u0333')) beamLevel = 2; // double underline
+    else if (token.includes('\u0332')) beamLevel = 1; // single underline
+    
+    let isSlurred = token.includes('\u0361');
+    let cleanToken = token.replace(/[\u0332\u0333\u0361]/g, '');
+    
+    if (isSlurred && cleanToken.length > 0 && !cleanToken.includes('(') && !cleanToken.includes(')')) {
+      cleanToken = `(${cleanToken})`;
+    }
+    
+    if (beamLevel > currentBeamLevel) {
+      const diff = beamLevel - currentBeamLevel;
+      const brackets = '['.repeat(diff);
+      const match = cleanToken.match(/^(\(+)(.*)$/);
+      if (match) {
+        result += match[1] + brackets + match[2];
+      } else {
+        result += brackets + cleanToken;
+      }
+      currentBeamLevel = beamLevel;
+    } else if (beamLevel < currentBeamLevel) {
+      const diff = currentBeamLevel - beamLevel;
+      const brackets = ']'.repeat(diff);
+      const spaceMatch = result.match(/(\s+)$/);
+      if (spaceMatch) {
+        result = result.substring(0, result.length - spaceMatch[1].length) + brackets + spaceMatch[1];
+      } else {
+        result += brackets;
+      }
+      result += cleanToken;
+      currentBeamLevel = beamLevel;
+    } else {
+      result += cleanToken;
+    }
+  }
+  
+  if (currentBeamLevel > 0) {
+    const brackets = ']'.repeat(currentBeamLevel);
+    const spaceMatch = result.match(/(\s+)$/);
+    if (spaceMatch) {
+      result = result.substring(0, result.length - spaceMatch[1].length) + brackets + spaceMatch[1];
+    } else {
+      result += brackets;
+    }
+  }
+  
+  result = result.replace(/(\)+)(\]+)/g, '$2$1');
+  
+  return result;
+}
+
 export function parseNotationLine(input: string | null | undefined): NotationParseResult {
-  const source = input?.trim() ?? "";
+  let source = input?.trim() ?? "";
   if (source.length === 0) {
     return { tokens: [], issues: [] };
   }
+  
+  source = normalizeLegacyNotation(source);
 
   const result = parseSequence(source, 0, null);
   return {
