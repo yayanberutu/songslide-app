@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { NotationPlayer } from "@/components/NotationPlayer";
 import { PlaygroundNotationLine } from "./PlaygroundNotationLine";
-import { parseNotationLine, NotationToken, type NotationParserIssue } from "@/lib/notation-parser";
+import { parseNotationLine, type NotationToken, type NotationParserIssue } from "@/lib/notation-parser";
+import { alignPlaygroundNotationAndLyric, type PlaygroundAlignmentResult } from "./lib/playground-alignment";
 import type { Song } from "@/lib/song-api";
 
 export type ParsedLineData = {
@@ -14,22 +15,24 @@ export type ParsedLineData = {
 
 export default function PlaygroundPage() {
   const [notationText, setNotationText] = useState("1 2 3 5 | 5 - - - |");
+  const [lyricText, setLyricText] = useState("");
   const [tempo, setTempo] = useState<number>(100);
   const [songKey, setSongKey] = useState<string>("C");
   const [viewMode, setViewMode] = useState<"TEXT" | "VISUAL">("TEXT");
   const [activeNoteIndex, setActiveNoteIndex] = useState<number | null>(null);
-  
+
   const [songs, setSongs] = useState<Song[]>([]);
   const [selectedSongId, setSelectedSongId] = useState<string>("");
   const [isLoadingSong, setIsLoadingSong] = useState(false);
-  
+
   const [parsedLines, setParsedLines] = useState<ParsedLineData[]>([]);
 
+  // Parse notation lines and assign global indices (for audio player)
   useEffect(() => {
     let globalIndex = 0;
-    const linesData = notationText.split("\n").map(line => {
+    const linesData = notationText.split("\n").map((line) => {
       const result = parseNotationLine(line);
-      
+
       const assignGlobalIndex = (tokens: NotationToken[]) => {
         for (const token of tokens) {
           if (token.type === "NOTE" || token.type === "REST" || token.type === "EXTENSION") {
@@ -39,55 +42,84 @@ export default function PlaygroundPage() {
           }
         }
       };
-      
+
       assignGlobalIndex(result.tokens);
       return {
         raw: line,
         tokens: result.tokens,
-        issues: result.issues
+        issues: result.issues,
       };
     });
-    
+
     setParsedLines(linesData);
   }, [notationText]);
 
+  // Compute spatial alignment per notation line vs corresponding lyric line
+  const alignments = useMemo<PlaygroundAlignmentResult[]>(() => {
+    const notationLines = notationText.split("\n");
+    const lyricLines = lyricText.split("\n");
+
+    return notationLines.map((notLine, i) => {
+      const lyricLine = lyricLines[i] ?? "";
+      return alignPlaygroundNotationAndLyric(notLine, lyricLine);
+    });
+  }, [notationText, lyricText]);
+
+  const hasLyric = lyricText.trim().length > 0;
+
+  // Load songs list
   useEffect(() => {
     import("@/lib/song-api").then((api) => {
-      api.listSongs({ limit: 1000 }).then(res => {
-        if (res.items) setSongs(res.items);
-      }).catch(err => console.error("Failed to list songs", err));
+      api
+        .listSongs({ limit: 1000 })
+        .then((res) => {
+          if (res.items) setSongs(res.items);
+        })
+        .catch((err) => console.error("Failed to list songs", err));
     });
   }, []);
 
   const handleLoadSong = async (songId: string) => {
     setSelectedSongId(songId);
     if (!songId) return;
-    
+
     setIsLoadingSong(true);
     try {
       const { getDefaultArrangement } = await import("@/lib/arrangement-api");
       const { getSong } = await import("@/lib/song-api");
       const [song, arrangement] = await Promise.all([
         getSong(songId),
-        getDefaultArrangement(songId)
+        getDefaultArrangement(songId),
       ]);
-      
+
       if (song.tempo) setTempo(song.tempo);
       if (song.defaultKey) setSongKey(song.defaultKey);
-      
+
       const content = arrangement.contentJson;
       const notations: string[] = [];
+      const lyrics: string[] = [];
       for (const section of content.sections) {
         if (section.type === "VERSE" || section.type === "REFRAIN") {
           for (const line of section.lines) {
             if (line.notation) {
               notations.push(line.notation);
+              // VerseLine has lyricsByVerse, RefrainLine has lyric
+              if ("lyric" in line) {
+                lyrics.push(line.lyric ?? "");
+              } else if ("lyricsByVerse" in line && line.lyricsByVerse) {
+                // Use the first verse's lyric as a representative
+                const firstLyric = Object.values(line.lyricsByVerse)[0] ?? "";
+                lyrics.push(firstLyric);
+              } else {
+                lyrics.push("");
+              }
             }
           }
         }
       }
-      
+
       setNotationText(notations.join("\n") || "0");
+      setLyricText(lyrics.join("\n"));
       setViewMode("VISUAL");
     } catch (err) {
       console.error("Failed to load song", err);
@@ -112,6 +144,7 @@ export default function PlaygroundPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <div className="md:col-span-2 flex flex-col gap-4">
+          {/* Load from DB */}
           <div className="flex flex-col gap-2 bg-slate-50 p-4 rounded-xl border border-slate-200">
             <label htmlFor="songSelect" className="font-semibold text-slate-800">
               Muat dari Database
@@ -125,19 +158,24 @@ export default function PlaygroundPage() {
                 disabled={isLoadingSong}
               >
                 <option value="">-- Pilih Lagu --</option>
-                {songs.map(s => (
+                {songs.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.songBook.code} {s.songNumber} - {s.title}
                   </option>
                 ))}
               </select>
-              {isLoadingSong && <span className="text-sm text-slate-500 self-center animate-pulse">Memuat...</span>}
+              {isLoadingSong && (
+                <span className="text-sm text-slate-500 self-center animate-pulse">
+                  Memuat...
+                </span>
+              )}
             </div>
             <p className="text-xs text-slate-500">
-              Memilih lagu akan menimpa notasi, tempo, dan nada dasar di bawah ini sesuai data lagu.
+              Memilih lagu akan menimpa notasi, lirik, tempo, dan nada dasar di bawah ini sesuai data lagu.
             </p>
           </div>
 
+          {/* Notation + Lyric inputs / visual preview */}
           <div className="flex flex-col gap-2 mt-2">
             <div className="flex justify-between items-center">
               <label htmlFor="notation" className="font-semibold text-slate-800">
@@ -146,33 +184,62 @@ export default function PlaygroundPage() {
               <div className="flex bg-slate-200 rounded-lg p-1">
                 <button
                   type="button"
-                  className={`px-3 py-1 text-sm rounded-md transition-colors ${viewMode === "TEXT" ? "bg-white text-slate-900 shadow-sm font-medium" : "text-slate-600 hover:text-slate-900"}`}
+                  className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                    viewMode === "TEXT"
+                      ? "bg-white text-slate-900 shadow-sm font-medium"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
                   onClick={() => setViewMode("TEXT")}
                 >
                   Teks (Edit)
                 </button>
                 <button
                   type="button"
-                  className={`px-3 py-1 text-sm rounded-md transition-colors ${viewMode === "VISUAL" ? "bg-white text-slate-900 shadow-sm font-medium" : "text-slate-600 hover:text-slate-900"}`}
+                  className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                    viewMode === "VISUAL"
+                      ? "bg-white text-slate-900 shadow-sm font-medium"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
                   onClick={() => setViewMode("VISUAL")}
                 >
                   Visual (Preview)
                 </button>
               </div>
             </div>
-            
+
             {viewMode === "TEXT" ? (
-              <textarea
-                id="notation"
-                className="w-full h-96 p-4 font-mono text-lg rounded-xl border border-slate-300 bg-white focus:ring-2 focus:ring-emerald-500 outline-none resize-y shadow-inner text-slate-900"
-                value={notationText}
-                onChange={(e) => setNotationText(e.target.value)}
-                placeholder="Contoh: 1 2 3 4 | 5 - - - | [4 5] 6 7 | 1' - - - |"
-              />
+              <div className="flex flex-col gap-3">
+                <textarea
+                  id="notation"
+                  className="w-full h-48 p-4 font-mono text-lg rounded-xl border border-slate-300 bg-white focus:ring-2 focus:ring-emerald-500 outline-none resize-y shadow-inner text-slate-900"
+                  value={notationText}
+                  onChange={(e) => setNotationText(e.target.value)}
+                  placeholder="Contoh: 1 2 3 4 | 5 - - - | [4 5] 6 7 | 1' - - - |"
+                />
+                <label htmlFor="lyric" className="font-semibold text-slate-800">
+                  Lirik{" "}
+                  <span className="text-xs font-normal text-slate-500">
+                    (opsional — tiap baris sesuai baris notasi)
+                  </span>
+                </label>
+                <textarea
+                  id="lyric"
+                  className="w-full h-48 p-4 font-mono text-base rounded-xl border border-slate-300 bg-white focus:ring-2 focus:ring-emerald-500 outline-none resize-y shadow-inner text-slate-900"
+                  value={lyricText}
+                  onChange={(e) => setLyricText(e.target.value)}
+                  placeholder="Contoh: si   ngo-au,  to         on."
+                />
+              </div>
             ) : (
-              <div className="w-full h-96 p-6 rounded-xl border border-slate-300 bg-white overflow-y-auto shadow-inner flex flex-col gap-8">
-                {parsedLines.map((lineData, idx) => (
-                  <PlaygroundNotationLine key={idx} parsedLine={lineData} activeNoteIndex={activeNoteIndex} theme="LIGHT" />
+              <div className="w-full min-h-48 p-6 rounded-xl border border-slate-300 bg-white overflow-y-auto shadow-inner flex flex-col gap-8">
+                {alignments.map((alignment, idx) => (
+                  <PlaygroundNotationLine
+                    key={idx}
+                    alignment={alignment}
+                    activeNoteIndex={activeNoteIndex}
+                    theme="LIGHT"
+                    hasLyric={hasLyric}
+                  />
                 ))}
               </div>
             )}
@@ -187,22 +254,23 @@ export default function PlaygroundPage() {
           />
         </div>
 
+        {/* Sidebar */}
         <div className="flex flex-col gap-6">
           <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
             <h2 className="text-lg font-bold mb-4 border-b pb-2 text-slate-900">Pengaturan Audio</h2>
-            
+
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-2">
-                <label className="font-semibold text-sm text-slate-700">
-                  Nada Dasar (Key)
-                </label>
+                <label className="font-semibold text-sm text-slate-700">Nada Dasar (Key)</label>
                 <select
                   className="w-full p-2 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-emerald-500 outline-none text-slate-900"
                   value={songKey}
                   onChange={(e) => setSongKey(e.target.value)}
                 >
-                  {commonKeys.map(k => (
-                    <option key={k} value={k}>{k}</option>
+                  {commonKeys.map((k) => (
+                    <option key={k} value={k}>
+                      {k}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -239,6 +307,13 @@ export default function PlaygroundPage() {
               <li><b>[ ... ]</b> : Garis bendera / Beam</li>
               <li><b>( ... )</b> : Slur / Legato</li>
             </ul>
+            <div className="mt-4 pt-3 border-t border-blue-200">
+              <p className="text-xs font-semibold text-blue-900 mb-1">Panduan Lirik</p>
+              <p className="text-xs text-blue-700">
+                Gunakan spasi untuk mengatur posisi suku kata. Suku kata akan otomatis
+                dipasangkan ke not terdekat berdasarkan posisi karakter.
+              </p>
+            </div>
           </div>
         </div>
       </div>
