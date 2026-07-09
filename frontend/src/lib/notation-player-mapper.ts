@@ -12,7 +12,7 @@ type FlattenedAudioNote = {
   token: NotationNoteToken | NotationRestToken;
   beamDepth: number;
   slurDepth: number;
-  extensionBeamDepths: number[];
+  extensions: { beamDepth: number, globalNoteIndex?: number }[];
   globalNoteIndex?: number;
 };
 
