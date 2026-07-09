@@ -3,13 +3,13 @@
 import React, { useState, useEffect } from "react";
 import { NotationPlayer } from "@/components/NotationPlayer";
 import { PlaygroundNotationLine } from "./PlaygroundNotationLine";
-import { parseNotationLine, NotationToken } from "@/lib/notation-parser";
+import { parseNotationLine, NotationToken, type NotationParserIssue } from "@/lib/notation-parser";
 import type { Song } from "@/lib/song-api";
 
 export type ParsedLineData = {
   raw: string;
   tokens: NotationToken[];
-  issues: unknown[];
+  issues: NotationParserIssue[];
 };
 
 export default function PlaygroundPage() {
@@ -41,7 +41,11 @@ export default function PlaygroundPage() {
       };
       
       assignGlobalIndex(result.tokens);
-      return { raw: line, tokens: result.tokens, issues: result.issues };
+      return {
+        raw: line,
+        tokens: result.tokens,
+        issues: result.issues
+      };
     });
     
     setParsedLines(linesData);
