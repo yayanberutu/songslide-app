@@ -98,14 +98,14 @@ const closingTokenNames: Record<")" | "]", string> = {
 
 export function normalizeLegacyNotation(input: string): string {
   if (!input) return "";
-  let s = input.replace(/•/g, ".");
+  const s = input.replace(/•/g, ".");
   
   let result = "";
   let currentBeamLevel = 0;
   
   const tokens = s.split(/(\s+|\|)/);
   for (let i = 0; i < tokens.length; i++) {
-    let token = tokens[i];
+    const token = tokens[i];
     if (token.trim() === "" || token === "|") {
       result += token;
       continue;
@@ -115,7 +115,7 @@ export function normalizeLegacyNotation(input: string): string {
     if (token.includes('\u0333')) beamLevel = 2; // double underline
     else if (token.includes('\u0332')) beamLevel = 1; // single underline
     
-    let isSlurred = token.includes('\u0361');
+    const isSlurred = token.includes('\u0361');
     let cleanToken = token.replace(/[\u0332\u0333\u0361]/g, '');
     
     if (isSlurred && cleanToken.length > 0 && !cleanToken.includes('(') && !cleanToken.includes(')')) {
