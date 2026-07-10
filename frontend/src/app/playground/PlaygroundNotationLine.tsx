@@ -157,15 +157,21 @@ export function PlaygroundNotationToken({
           ))}
         </span>
       ) : null}
-      {token.accidental ? (
-        <span
-          className="pointer-events-none absolute -left-1 top-2.5 text-[0.65rem] leading-none"
-          aria-hidden="true"
-        >
-          {token.accidental === "b" ? "♭" : "♯"}
-        </span>
-      ) : null}
-      {token.degree}
+      <span className="relative">
+        {token.degree}
+        {token.accidental ? (
+          <span
+            className="absolute inset-0 pointer-events-none flex items-center justify-center"
+            aria-hidden="true"
+          >
+            <span
+              className={`w-[130%] h-[1.5px] bg-current transform ${
+                token.accidental === "b" ? "rotate-45" : "-rotate-45"
+              }`}
+            />
+          </span>
+        ) : null}
+      </span>
       {token.shortDurationLevel > 0 ? (
         <span
           className="pointer-events-none absolute -bottom-1 left-1/2 flex -translate-x-1/2 flex-col gap-[1.5px]"
