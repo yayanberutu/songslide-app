@@ -51,7 +51,12 @@ export function AlignedNotationLine({
     );
   }
 
-  const slotCursor = { index: 0 };
+  const cellMap = new Map<NotationTokenValue, AlignmentCell>();
+  for (const cell of alignment.cells) {
+    if (cell.notationToken) {
+      cellMap.set(cell.notationToken, cell);
+    }
+  }
 
   return (
     <div className="max-w-full overflow-x-auto pb-1">
@@ -62,8 +67,7 @@ export function AlignedNotationLine({
             token={token}
             theme={theme}
             lyricTone={lyricTone}
-            cells={alignment.cells}
-            slotCursor={slotCursor}
+            cellMap={cellMap}
           />
         ))}
       </div>
@@ -75,27 +79,25 @@ function TopLevelToken({
   token,
   theme,
   lyricTone,
-  cells,
-  slotCursor
+  cellMap,
 }: {
   token: NotationTokenValue;
   theme: "LIGHT" | "DARK";
   lyricTone: string;
-  cells: AlignmentCell[];
-  slotCursor: SlotCursor;
+  cellMap: Map<NotationTokenValue, AlignmentCell>;
 }) {
   if (token.type === "BEAM") {
     return (
       <div className="flex flex-col items-start gap-1">
         <NotationToken token={token} theme={theme} />
-        <BeamLyricTrack token={token} lyricTone={lyricTone} cells={cells} slotCursor={slotCursor} />
+        <BeamLyricTrack token={token} lyricTone={lyricTone} cellMap={cellMap} />
       </div>
     );
   }
 
   if (token.type === "SLUR") {
-    const lyric = cells[slotCursor.index]?.lyric ?? null;
-    slotCursor.index += 1;
+    const cell = cellMap.get(token);
+    const lyric = cell?.lyric ?? null;
 
     return (
       <div className="flex flex-col items-start gap-1">
@@ -105,10 +107,8 @@ function TopLevelToken({
     );
   }
 
-  const lyric = token.lyricSlots > 0 ? cells[slotCursor.index]?.lyric ?? null : null;
-  if (token.lyricSlots > 0) {
-    slotCursor.index += 1;
-  }
+  const cell = cellMap.get(token);
+  const lyric = token.lyricSlots > 0 ? cell?.lyric ?? null : null;
 
   return (
     <div className="flex flex-col items-center gap-1">
@@ -123,13 +123,11 @@ function TopLevelToken({
 function BeamLyricTrack({
   token,
   lyricTone,
-  cells,
-  slotCursor
+  cellMap,
 }: {
   token: NotationBeamToken;
   lyricTone: string;
-  cells: AlignmentCell[];
-  slotCursor: SlotCursor;
+  cellMap: Map<NotationTokenValue, AlignmentCell>;
 }) {
   return (
     <div className="inline-flex items-start gap-1">
@@ -138,8 +136,7 @@ function BeamLyricTrack({
           key={`${token.raw}-${index}`}
           token={child}
           lyricTone={lyricTone}
-          cells={cells}
-          slotCursor={slotCursor}
+          cellMap={cellMap}
         />
       ))}
     </div>
@@ -149,28 +146,26 @@ function BeamLyricTrack({
 function LyricTrackToken({
   token,
   lyricTone,
-  cells,
-  slotCursor
+  cellMap,
 }: {
   token: NotationTokenValue;
   lyricTone: string;
-  cells: AlignmentCell[];
-  slotCursor: SlotCursor;
+  cellMap: Map<NotationTokenValue, AlignmentCell>;
 }) {
   if (token.type === "BEAM") {
-    return <BeamLyricTrack token={token} lyricTone={lyricTone} cells={cells} slotCursor={slotCursor} />;
+    return <BeamLyricTrack token={token} lyricTone={lyricTone} cellMap={cellMap} />;
   }
 
   if (token.type === "SLUR") {
-    const lyric = cells[slotCursor.index]?.lyric ?? null;
-    slotCursor.index += 1;
+    const cell = cellMap.get(token);
+    const lyric = cell?.lyric ?? null;
 
     return <SlurLyricTrack token={token} lyric={lyric?.text ?? ""} lyricTone={lyricTone} />;
   }
 
   if (token.type === "NOTE") {
-    const lyric = cells[slotCursor.index]?.lyric ?? null;
-    slotCursor.index += 1;
+    const cell = cellMap.get(token);
+    const lyric = cell?.lyric ?? null;
 
     return <LyricSpan text={lyric?.text ?? ""} tone={lyricTone} />;
   }
