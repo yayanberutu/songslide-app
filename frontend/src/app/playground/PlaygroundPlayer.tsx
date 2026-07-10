@@ -53,7 +53,7 @@ export function PlaygroundPlayer({
         setIsPlaying(state.isPlaying);
       },
       (voiceId, noteIndex) => {
-        onActiveNoteChange?.(voiceId, noteIndex);
+        console.log("active note change", voiceId, noteIndex); onActiveNoteChange?.(voiceId, noteIndex);
       }
     );
 

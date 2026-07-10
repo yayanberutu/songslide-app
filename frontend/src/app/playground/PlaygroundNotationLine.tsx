@@ -328,7 +328,7 @@ function PlaygroundAlignedToken({
         <span className="relative inline-flex h-12 w-fit items-center justify-center px-px">
           <span className="inline-flex h-full items-center gap-1">
             {token.children.map((child, index) => {
-              const isActiveNote = activeNoteIndex === child.index;
+              const isActiveNote = activeNoteIndex !== null && activeNoteIndex === child.globalNoteIndex;
               const activeBgClass = isActiveNote 
                 ? (voiceColor ? `${voiceColor.replace("text-", "bg-").replace("-500", "-100")} border ${voiceColor.replace("text-", "border-")}` : "bg-emerald-100 border border-emerald-300")
                 : "border border-transparent";

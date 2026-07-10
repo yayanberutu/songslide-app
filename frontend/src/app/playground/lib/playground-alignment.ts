@@ -1,6 +1,5 @@
 import {
   collectLyricSlotTokens,
-  parseNotationLine,
   type NotationNoteToken,
   type NotationLyricSlotToken,
   type NotationParseResult,
@@ -37,10 +36,9 @@ export type PlaygroundAlignmentResult = {
  *   - Missing lyrics (slots get no lyric)
  */
 export function alignPlaygroundNotationAndLyric(
-  notationText: string | null | undefined,
+  notation: NotationParseResult,
   lyricText: string | null | undefined
 ): PlaygroundAlignmentResult {
-  const notation = parseNotationLine(notationText);
   const lyricSyllables = parsePlaygroundLyricSyllables(lyricText);
   const notationTokens = collectLyricSlotTokens(notation.tokens);
 

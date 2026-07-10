@@ -25,6 +25,8 @@ export class MultiVoicePlayer {
   private startDelay = 0.1;
   private onStateChange?: (state: MultiVoicePlaybackState) => void;
   private onActiveNoteChange?: (voiceId: string, noteIndex: number | null) => void;
+  
+  private lastEmittedNoteIndex: Record<string, number | null> = {};
   private isPlaying: boolean = false;
 
   constructor(
@@ -144,6 +146,8 @@ export class MultiVoicePlayer {
       if (timeElapsed >= 0) {
         // Find which event is currently playing for each voice
         for (const voiceData of this.currentVoicesRef) {
+          let currentActiveIndex: number | null = null;
+          
           const activeEvent = voiceData.events.find(
             e => timeElapsed >= e.startTimeSeconds && timeElapsed < (e.startTimeSeconds + e.durationSeconds)
           );
@@ -155,8 +159,13 @@ export class MultiVoicePlayer {
             );
             
             if (activeUiToken && activeUiToken.noteIndex !== undefined) {
-              this.onActiveNoteChange?.(voiceData.voiceId, activeUiToken.noteIndex);
+              currentActiveIndex = activeUiToken.noteIndex;
             }
+          }
+          
+          if (this.lastEmittedNoteIndex[voiceData.voiceId] !== currentActiveIndex) {
+            this.lastEmittedNoteIndex[voiceData.voiceId] = currentActiveIndex;
+            this.onActiveNoteChange?.(voiceData.voiceId, currentActiveIndex);
           }
         }
       }

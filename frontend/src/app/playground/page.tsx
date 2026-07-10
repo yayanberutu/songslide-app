@@ -125,7 +125,10 @@ export default function PlaygroundPage() {
   };
 
   const handleActiveNoteChange = useCallback((voiceId: string, noteIndex: number | null) => {
-    setActiveNoteIndices(prev => ({ ...prev, [voiceId]: noteIndex }));
+    setActiveNoteIndices(prev => {
+      if (prev[voiceId] === noteIndex) return prev;
+      return { ...prev, [voiceId]: noteIndex };
+    });
   }, []);
 
   // --- Parsing Effect ---
@@ -156,7 +159,7 @@ export default function PlaygroundPage() {
         assignGlobalIndex(result.tokens);
         
         const lyricLine = lyricLines[i] ?? "";
-        const alignmentResult = alignPlaygroundNotationAndLyric(line, lyricLine);
+        const alignmentResult = alignPlaygroundNotationAndLyric(result, lyricLine);
         
         return {
           raw: line,
