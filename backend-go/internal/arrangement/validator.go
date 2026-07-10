@@ -120,6 +120,10 @@ func validateLinesArray(linesIntf interface{}, linesPath string, verseLines bool
 			return err
 		}
 
+		if err := validateOptionalRecordText(line, "notationsByVoice", linePath); err != nil {
+			return err
+		}
+
 		if verseLines {
 			if lbv, ok := line["lyricsByVerse"]; ok && lbv != nil {
 				lyrics, ok := lbv.(map[string]interface{})
@@ -133,8 +137,29 @@ func validateLinesArray(linesIntf interface{}, linesPath string, verseLines bool
 					return err
 				}
 			}
+			if lbvv, ok := line["lyricsByVoiceAndVerse"]; ok && lbvv != nil {
+				lyrics, ok := lbvv.(map[string]interface{})
+				if !ok {
+					return fmt.Errorf("%s.lyricsByVoiceAndVerse must be an object", linePath)
+				}
+				for voiceId, versesIntf := range lyrics {
+					verses, ok := versesIntf.(map[string]interface{})
+					if !ok {
+						return fmt.Errorf("%s.lyricsByVoiceAndVerse[%s] must be an object", linePath, voiceId)
+					}
+					if err := validateVerseNumberKeys(verses, fmt.Sprintf("%s.lyricsByVoiceAndVerse[%s]", linePath, voiceId)); err != nil {
+						return err
+					}
+					if err := validateObjectTextValues(verses, fmt.Sprintf("%s.lyricsByVoiceAndVerse[%s]", linePath, voiceId)); err != nil {
+						return err
+					}
+				}
+			}
 		} else {
 			if err := validateOptionalText(line, "lyric", linePath); err != nil {
+				return err
+			}
+			if err := validateOptionalRecordText(line, "lyricsByVoice", linePath); err != nil {
 				return err
 			}
 		}
@@ -164,6 +189,18 @@ func validateOptionalText(obj map[string]interface{}, fieldName string, objPath 
 		return fmt.Errorf("%s.%s must be text", objPath, fieldName)
 	}
 	return nil
+}
+
+func validateOptionalRecordText(obj map[string]interface{}, fieldName string, objPath string) error {
+	valIntf, ok := obj[fieldName]
+	if !ok || valIntf == nil {
+		return nil
+	}
+	record, ok := valIntf.(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("%s.%s must be an object", objPath, fieldName)
+	}
+	return validateObjectTextValues(record, fmt.Sprintf("%s.%s", objPath, fieldName))
 }
 
 func validateVerseNumberKeys(obj map[string]interface{}, objPath string) error {

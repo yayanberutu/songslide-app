@@ -12,6 +12,7 @@ type TokenProps = {
   theme?: "LIGHT" | "DARK";
   beamDepth?: number;
   activeNoteIndex?: number | null;
+  voiceColor?: string;
 };
 
 const notationArea = "relative inline-flex h-12 items-center justify-center";
@@ -23,6 +24,7 @@ export function PlaygroundNotationToken({
   theme = "LIGHT",
   beamDepth = 0,
   activeNoteIndex = null,
+  voiceColor,
 }: TokenProps) {
   const isDark = theme === "DARK";
 
@@ -30,14 +32,16 @@ export function PlaygroundNotationToken({
     token.globalNoteIndex !== undefined &&
     token.globalNoteIndex === activeNoteIndex;
 
+  const activeColor = voiceColor || "text-emerald-500";
+
   const baseNoteTone = isDark ? "text-cyan-100" : "text-ink-950";
   const noteTone = isHighlighted
-    ? "text-emerald-500 font-bold scale-110 transition-transform"
+    ? `${activeColor} font-bold scale-110 transition-transform`
     : baseNoteTone;
 
   const baseMutedTone = isDark ? "text-zinc-300" : "text-ink-500";
   const mutedTone = isHighlighted
-    ? "text-emerald-500 font-bold scale-110 transition-transform"
+    ? `${activeColor} font-bold scale-110 transition-transform`
     : baseMutedTone;
 
   const beamTone = isDark ? "bg-cyan-100/85" : "bg-ink-950/80";
@@ -212,6 +216,7 @@ function PlaygroundAlignedToken({
   activeNoteIndex,
   lyricTone,
   cells,
+  voiceColor,
 }: {
   token: NotationTokenValue;
   lyric: string | null;
@@ -220,6 +225,7 @@ function PlaygroundAlignedToken({
   activeNoteIndex: number | null;
   lyricTone: string;
   cells: PlaygroundAlignmentCell[];
+  voiceColor?: string;
 }) {
   // Non-lyric-bearing tokens: just delegate to the visual token renderer
   if (
@@ -229,7 +235,7 @@ function PlaygroundAlignedToken({
   ) {
     return (
       <div className="inline-flex flex-col items-center">
-        <PlaygroundNotationToken token={token} theme={theme} activeNoteIndex={activeNoteIndex} />
+        <PlaygroundNotationToken token={token} theme={theme} activeNoteIndex={activeNoteIndex} voiceColor={voiceColor} />
         {/* Spacer so rows stay aligned */}
         <span className="h-4" />
       </div>
@@ -240,7 +246,7 @@ function PlaygroundAlignedToken({
   if (token.type === "REST") {
     return (
       <div className="inline-flex flex-col items-center">
-        <PlaygroundNotationToken token={token} theme={theme} activeNoteIndex={activeNoteIndex} />
+        <PlaygroundNotationToken token={token} theme={theme} activeNoteIndex={activeNoteIndex} voiceColor={voiceColor} />
         <span className="h-4" />
       </div>
     );
@@ -275,15 +281,26 @@ function PlaygroundAlignedToken({
               className={`pointer-events-none absolute ${beamTopClass} left-0.5 right-0.5 h-[1.5px] rounded-full ${beamTone}`}
             />
             <span className="inline-flex h-full items-center gap-1">
-              {token.children.map((child, index) => (
-                <PlaygroundNotationToken
-                  key={`${token.raw}-${index}`}
-                  token={child}
-                  theme={theme}
-                  beamDepth={ownBeamLevel}
-                  activeNoteIndex={activeNoteIndex}
-                />
-              ))}
+              {token.children.map((child, index) => {
+                const isActiveNote = activeNoteIndex === child.index;
+              const activeBgClass = isActiveNote 
+                ? (voiceColor ? `${voiceColor.replace("text-", "bg-").replace("-500", "-100")} border ${voiceColor.replace("text-", "border-")}` : "bg-emerald-100 border border-emerald-300")
+                : "border border-transparent";
+              return (
+                  <div
+                    key={`${token.raw}-${index}`}
+                    className={`px-0.5 rounded transition-colors ${activeBgClass}`}
+                  >
+                    <PlaygroundNotationToken
+                      token={child}
+                      theme={theme}
+                      beamDepth={ownBeamLevel}
+                      activeNoteIndex={activeNoteIndex}
+                      voiceColor={voiceColor}
+                    />
+                  </div>
+                );
+              })}
             </span>
           </span>
           {/* Lyric row — one slot per child */}
@@ -310,15 +327,27 @@ function PlaygroundAlignedToken({
       <div className="inline-flex flex-col items-center">
         <span className="relative inline-flex h-12 w-fit items-center justify-center px-px">
           <span className="inline-flex h-full items-center gap-1">
-            {token.children.map((child, index) => (
-              <PlaygroundNotationToken
-                key={`${token.raw}-${index}`}
-                token={child}
-                theme={theme}
-                beamDepth={beamDepth}
-                activeNoteIndex={activeNoteIndex}
-              />
-            ))}
+            {token.children.map((child, index) => {
+              const isActiveNote = activeNoteIndex === child.index;
+              const activeBgClass = isActiveNote 
+                ? (voiceColor ? `${voiceColor.replace("text-", "bg-").replace("-500", "-100")} border ${voiceColor.replace("text-", "border-")}` : "bg-emerald-100 border border-emerald-300")
+                : "border border-transparent";
+              
+              return (
+                <div
+                  key={`${token.raw}-${index}`}
+                  className={`px-0.5 rounded transition-colors ${activeBgClass}`}
+                >
+                  <PlaygroundNotationToken
+                    token={child}
+                    theme={theme}
+                    beamDepth={beamDepth}
+                    activeNoteIndex={activeNoteIndex}
+                    voiceColor={voiceColor}
+                  />
+                </div>
+              );
+            })}
           </span>
           <span
             aria-hidden="true"
@@ -346,13 +375,19 @@ function PlaygroundAlignedToken({
   }
 
   // NOTE: the main case — notation on top, lyric below
+  const isActiveNote = activeNoteIndex === token.index;
+  const activeBgClass = isActiveNote 
+    ? (voiceColor ? `${voiceColor.replace("text-", "bg-").replace("-500", "-100")} border ${voiceColor.replace("text-", "border-")}` : "bg-emerald-100 border border-emerald-300")
+    : "border border-transparent";
+
   return (
-    <div className="inline-flex flex-col items-center">
+    <div className={`inline-flex flex-col items-center px-0.5 rounded transition-colors ${activeBgClass}`}>
       <PlaygroundNotationToken
         token={token}
         theme={theme}
         beamDepth={beamDepth}
         activeNoteIndex={activeNoteIndex}
+        voiceColor={voiceColor}
       />
       <span
         className={`inline-flex min-w-4 justify-center text-sm font-semibold leading-none ${lyricTone} whitespace-nowrap`}
@@ -372,6 +407,7 @@ export type PlaygroundNotationLineProps = {
   activeNoteIndex?: number | null;
   /** Whether the user has entered any lyric text at all */
   hasLyric?: boolean;
+  voiceColor?: string;
 };
 
 export function PlaygroundNotationLine({
@@ -379,6 +415,7 @@ export function PlaygroundNotationLine({
   theme = "LIGHT",
   activeNoteIndex = null,
   hasLyric = false,
+  voiceColor,
 }: PlaygroundNotationLineProps) {
   const isDark = theme === "DARK";
   const lyricTone = isDark ? "text-zinc-300" : "text-ink-600";
@@ -413,6 +450,7 @@ export function PlaygroundNotationLine({
                 token={token}
                 theme={theme}
                 activeNoteIndex={activeNoteIndex}
+                voiceColor={voiceColor}
               />
             );
           }
@@ -427,6 +465,7 @@ export function PlaygroundNotationLine({
               activeNoteIndex={activeNoteIndex}
               lyricTone={lyricTone}
               cells={alignment.cells}
+              voiceColor={voiceColor}
             />
           );
         })}

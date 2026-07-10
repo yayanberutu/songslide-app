@@ -80,14 +80,16 @@ export function playTone(
   frequency: number,
   startTime: number,
   duration: number,
-  isSlur: boolean = false
+  isSlur: boolean = false,
+  waveform: OscillatorType = "sine",
+  volume: number = 0.5
 ) {
   if (frequency === 0) return; // Rest
 
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
 
-  osc.type = "sine";
+  osc.type = waveform;
   osc.frequency.setValueAtTime(frequency, startTime);
 
   // Attack/Release envelope to avoid clicks
@@ -98,10 +100,10 @@ export function playTone(
   const safeDuration = Math.max(duration, attackTime + releaseTime + 0.01);
 
   gain.gain.setValueAtTime(0, startTime);
-  gain.gain.linearRampToValueAtTime(0.5, startTime + attackTime);
+  gain.gain.linearRampToValueAtTime(volume, startTime + attackTime);
   
   // Keep volume constant
-  gain.gain.setValueAtTime(0.5, startTime + safeDuration - releaseTime);
+  gain.gain.setValueAtTime(volume, startTime + safeDuration - releaseTime);
   // Fade out
   gain.gain.linearRampToValueAtTime(0, startTime + safeDuration);
 

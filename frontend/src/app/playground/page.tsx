@@ -1,73 +1,177 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
-import { NotationPlayer } from "@/components/NotationPlayer";
-import { PlaygroundNotationLine } from "./PlaygroundNotationLine";
+import React, { useState, useEffect, useCallback } from "react";
 import { parseNotationLine, type NotationToken, type NotationParserIssue } from "@/lib/notation-parser";
 import { alignPlaygroundNotationAndLyric, type PlaygroundAlignmentResult } from "./lib/playground-alignment";
 import type { Song } from "@/lib/song-api";
+import type { ArrangementContentJson } from "@/lib/arrangement-api";
+
+import { VoiceDefinition, DEFAULT_VOICES, createVoice } from "./lib/playground-voice";
+import { VoiceTabBar } from "./VoiceTabBar";
+import { VoiceEditorPanel } from "./VoiceEditorPanel";
+import { AllVoicesPreview } from "./AllVoicesPreview";
+import { PlaygroundPlayer } from "./PlaygroundPlayer";
+import { PlaygroundNotationLine } from "./PlaygroundNotationLine";
 
 export type ParsedLineData = {
   raw: string;
   tokens: NotationToken[];
   issues: NotationParserIssue[];
+  lyric?: string;
+  alignmentResult: PlaygroundAlignmentResult;
 };
 
 export default function PlaygroundPage() {
-  const [notationText, setNotationText] = useState("1 2 3 5 | 5 - - - |");
-  const [lyricText, setLyricText] = useState("");
+  // Modes & Config
+  const [isPartiturMode, setIsPartiturMode] = useState(false);
+  const [viewMode, setViewMode] = useState<"TEXT" | "VISUAL">("TEXT");
   const [tempo, setTempo] = useState<number>(100);
   const [songKey, setSongKey] = useState<string>("C");
-  const [viewMode, setViewMode] = useState<"TEXT" | "VISUAL">("TEXT");
-  const [activeNoteIndex, setActiveNoteIndex] = useState<number | null>(null);
 
+  // Multi-voice state
+  const [voices, setVoices] = useState<VoiceDefinition[]>([DEFAULT_VOICES[0]]);
+  const [notationByVoice, setNotationByVoice] = useState<Record<string, string>>({
+    [DEFAULT_VOICES[0].id]: "1 2 3 5 | 5 - - - |",
+  });
+  const [lyricByVoice, setLyricByVoice] = useState<Record<string, string>>({
+    [DEFAULT_VOICES[0].id]: "",
+  });
+  const [enabledVoices, setEnabledVoices] = useState<Set<string>>(new Set([DEFAULT_VOICES[0].id]));
+  const [activeTab, setActiveTab] = useState<string>("all");
+
+  // Playback state
+  const [activeNoteIndices, setActiveNoteIndices] = useState<Record<string, number | null>>({});
+
+  // DB loading state
   const [songs, setSongs] = useState<Song[]>([]);
   const [selectedSongId, setSelectedSongId] = useState<string>("");
   const [isLoadingSong, setIsLoadingSong] = useState(false);
 
-  const [parsedLines, setParsedLines] = useState<ParsedLineData[]>([]);
+  // Parsed lines cache
+  const [parsedLinesPerVoice, setParsedLinesPerVoice] = useState<Record<string, ParsedLineData[]>>({});
 
-  // Parse notation lines and assign global indices (for audio player)
+  // --- Helpers to switch modes gracefully ---
+  const handleTogglePartiturMode = () => {
+    if (isPartiturMode) {
+      // Switching back to single voice
+      if (confirm("Ganti ke Single Voice akan menghapus data suara selain suara pertama. Lanjutkan?")) {
+        const firstVoice = voices[0];
+        setVoices([firstVoice]);
+        setEnabledVoices(new Set([firstVoice.id]));
+        setActiveTab("all");
+        setIsPartiturMode(false);
+      }
+    } else {
+      // Switching to partitur, add a second default voice
+      const newVoice = DEFAULT_VOICES[1];
+      setVoices([...voices, newVoice]);
+      setEnabledVoices(new Set([...Array.from(enabledVoices), newVoice.id]));
+      setIsPartiturMode(true);
+    }
+  };
+
+  // --- Multi-voice Editor Handlers ---
+  const handleVoiceChange = (voiceId: string, updates: Partial<VoiceDefinition>) => {
+    setVoices(prev => prev.map(v => v.id === voiceId ? { ...v, ...updates } : v));
+  };
+
+  const handleVoiceDelete = (voiceId: string) => {
+    setVoices(prev => prev.filter(v => v.id !== voiceId));
+    setNotationByVoice(prev => {
+      const next = { ...prev };
+      delete next[voiceId];
+      return next;
+    });
+    setLyricByVoice(prev => {
+      const next = { ...prev };
+      delete next[voiceId];
+      return next;
+    });
+    setEnabledVoices(prev => {
+      const next = new Set(prev);
+      next.delete(voiceId);
+      return next;
+    });
+    if (activeTab === voiceId) setActiveTab("all");
+  };
+
+  const handleAddVoice = (newVoiceInfo: Omit<VoiceDefinition, "id">) => {
+    const newId = newVoiceInfo.label.toLowerCase().replace(/[^a-z0-9]/g, "-") + "-" + Date.now();
+    const newVoice = { ...newVoiceInfo, id: newId };
+    
+    // Auto color & waveform if using default fallback
+    const newVoiceDef = createVoice(newVoice.id, newVoice.label, voices.length);
+    newVoiceDef.color = newVoiceInfo.color;
+    
+    setVoices(prev => [...prev, newVoiceDef]);
+    setEnabledVoices(prev => new Set([...Array.from(prev), newId]));
+  };
+
+  const handleNotationChange = (voiceId: string, value: string) => {
+    setNotationByVoice(prev => ({ ...prev, [voiceId]: value }));
+  };
+
+  const handleLyricChange = (voiceId: string, value: string) => {
+    setLyricByVoice(prev => ({ ...prev, [voiceId]: value }));
+  };
+
+  const handleToggleVoiceEnabled = (voiceId: string) => {
+    setEnabledVoices(prev => {
+      const next = new Set(prev);
+      if (next.has(voiceId)) next.delete(voiceId);
+      else next.add(voiceId);
+      return next;
+    });
+  };
+
+  const handleActiveNoteChange = useCallback((voiceId: string, noteIndex: number | null) => {
+    setActiveNoteIndices(prev => ({ ...prev, [voiceId]: noteIndex }));
+  }, []);
+
+  // --- Parsing Effect ---
   useEffect(() => {
-    let globalIndex = 0;
-    const linesData = notationText.split("\n").map((line) => {
-      const result = parseNotationLine(line);
-
-      const assignGlobalIndex = (tokens: NotationToken[]) => {
-        for (const token of tokens) {
-          if (token.type === "NOTE" || token.type === "REST" || token.type === "EXTENSION") {
-            token.globalNoteIndex = globalIndex++;
-          } else if (token.type === "SLUR" || token.type === "BEAM") {
-            assignGlobalIndex(token.children);
+    const newParsed: Record<string, ParsedLineData[]> = {};
+    
+    for (const voice of voices) {
+      let globalIndex = 0;
+      const notText = notationByVoice[voice.id] || "";
+      const lyrText = lyricByVoice[voice.id] || "";
+      
+      const notationLines = notText.split("\n");
+      const lyricLines = lyrText.split("\n");
+      
+      newParsed[voice.id] = notationLines.map((line, i) => {
+        const result = parseNotationLine(line);
+        
+        const assignGlobalIndex = (tokens: NotationToken[]) => {
+          for (const token of tokens) {
+            if (token.type === "NOTE" || token.type === "REST" || token.type === "EXTENSION") {
+              token.globalNoteIndex = globalIndex++;
+            } else if (token.type === "SLUR" || token.type === "BEAM") {
+              assignGlobalIndex(token.children);
+            }
           }
-        }
-      };
+        };
+        
+        assignGlobalIndex(result.tokens);
+        
+        const lyricLine = lyricLines[i] ?? "";
+        const alignmentResult = alignPlaygroundNotationAndLyric(line, lyricLine);
+        
+        return {
+          raw: line,
+          tokens: result.tokens,
+          issues: result.issues,
+          lyric: lyricLine,
+          alignmentResult,
+        };
+      });
+    }
+    
+    setParsedLinesPerVoice(newParsed);
+  }, [voices, notationByVoice, lyricByVoice]);
 
-      assignGlobalIndex(result.tokens);
-      return {
-        raw: line,
-        tokens: result.tokens,
-        issues: result.issues,
-      };
-    });
-
-    setParsedLines(linesData);
-  }, [notationText]);
-
-  // Compute spatial alignment per notation line vs corresponding lyric line
-  const alignments = useMemo<PlaygroundAlignmentResult[]>(() => {
-    const notationLines = notationText.split("\n");
-    const lyricLines = lyricText.split("\n");
-
-    return notationLines.map((notLine, i) => {
-      const lyricLine = lyricLines[i] ?? "";
-      return alignPlaygroundNotationAndLyric(notLine, lyricLine);
-    });
-  }, [notationText, lyricText]);
-
-  const hasLyric = lyricText.trim().length > 0;
-
-  // Load songs list
+  // --- Load from DB ---
   useEffect(() => {
     import("@/lib/song-api").then((api) => {
       api
@@ -95,32 +199,92 @@ export default function PlaygroundPage() {
       if (song.tempo) setTempo(song.tempo);
       if (song.defaultKey) setSongKey(song.defaultKey);
 
-      const content = arrangement.contentJson;
-      const notations: string[] = [];
-      const lyrics: string[] = [];
+      const content = arrangement.contentJson as ArrangementContentJson;
+      
+      let isPartitur = false;
+      const newNotations: Record<string, string[]> = {};
+      const newLyrics: Record<string, string[]> = {};
+      
+      // Default to voice 0 if single voice
+      const defaultVoiceId = voices[0]?.id || DEFAULT_VOICES[0].id;
+
       for (const section of content.sections) {
         if (section.type === "VERSE" || section.type === "REFRAIN") {
           for (const line of section.lines) {
-            if (line.notation) {
-              notations.push(line.notation);
-              // VerseLine has lyricsByVerse, RefrainLine has lyric
+            // Check for partitur fields
+            if (line.notationsByVoice && Object.keys(line.notationsByVoice).length > 0) {
+              isPartitur = true;
+              for (const [vId, notation] of Object.entries(line.notationsByVoice)) {
+                if (!newNotations[vId]) newNotations[vId] = [];
+                newNotations[vId].push(notation);
+                
+                if (!newLyrics[vId]) newLyrics[vId] = [];
+                
+                // Try to find lyric for this voice
+                if (section.type === "VERSE") {
+                  if ("lyricsByVoiceAndVerse" in line && line.lyricsByVoiceAndVerse?.[vId]) {
+                    newLyrics[vId].push(Object.values(line.lyricsByVoiceAndVerse[vId])[0] ?? "");
+                  } else {
+                    newLyrics[vId].push("");
+                  }
+                } else if (section.type === "REFRAIN") {
+                  if ("lyricsByVoice" in line && line.lyricsByVoice?.[vId]) {
+                    newLyrics[vId].push(line.lyricsByVoice[vId] ?? "");
+                  } else {
+                    newLyrics[vId].push("");
+                  }
+                }
+              }
+            } else if (line.notation) {
+              // Single voice fallback
+              if (!newNotations[defaultVoiceId]) newNotations[defaultVoiceId] = [];
+              newNotations[defaultVoiceId].push(line.notation);
+              
+              if (!newLyrics[defaultVoiceId]) newLyrics[defaultVoiceId] = [];
               if ("lyric" in line) {
-                lyrics.push(line.lyric ?? "");
+                newLyrics[defaultVoiceId].push(line.lyric ?? "");
               } else if ("lyricsByVerse" in line && line.lyricsByVerse) {
-                // Use the first verse's lyric as a representative
-                const firstLyric = Object.values(line.lyricsByVerse)[0] ?? "";
-                lyrics.push(firstLyric);
+                newLyrics[defaultVoiceId].push(Object.values(line.lyricsByVerse)[0] ?? "");
               } else {
-                lyrics.push("");
+                newLyrics[defaultVoiceId].push("");
               }
             }
           }
         }
       }
 
-      setNotationText(notations.join("\n") || "0");
-      setLyricText(lyrics.join("\n"));
+      if (isPartitur) {
+        setIsPartiturMode(true);
+        const voiceIds = Object.keys(newNotations);
+        const newVoices = voiceIds.map((vId, idx) => {
+          const matchDefault = DEFAULT_VOICES.find(d => d.id === vId);
+          if (matchDefault) return matchDefault;
+          // Capitalize first letter for label
+          const label = vId.charAt(0).toUpperCase() + vId.slice(1);
+          return createVoice(vId, label, idx);
+        });
+        setVoices(newVoices);
+        setEnabledVoices(new Set(voiceIds));
+        
+        const flatNotations: Record<string, string> = {};
+        const flatLyrics: Record<string, string> = {};
+        for (const vId of voiceIds) {
+          flatNotations[vId] = newNotations[vId].join("\n");
+          flatLyrics[vId] = newLyrics[vId].join("\n");
+        }
+        setNotationByVoice(flatNotations);
+        setLyricByVoice(flatLyrics);
+      } else {
+        setIsPartiturMode(false);
+        const firstVoice = voices[0] || DEFAULT_VOICES[0];
+        setVoices([firstVoice]);
+        setEnabledVoices(new Set([firstVoice.id]));
+        setNotationByVoice({ [firstVoice.id]: (newNotations[defaultVoiceId] || []).join("\n") });
+        setLyricByVoice({ [firstVoice.id]: (newLyrics[defaultVoiceId] || []).join("\n") });
+      }
+
       setViewMode("VISUAL");
+      setActiveTab("all");
     } catch (err) {
       console.error("Failed to load song", err);
       alert("Gagal memuat lagu dari database.");
@@ -131,15 +295,53 @@ export default function PlaygroundPage() {
 
   const commonKeys = ["C", "C#", "Db", "D", "Eb", "E", "F", "F#", "Gb", "G", "Ab", "A", "Bb", "B"];
 
+  // Render individual voice tab preview
+  const renderIndividualVoice = () => {
+    const voiceId = activeTab;
+    const voiceDef = voices.find(v => v.id === voiceId);
+    if (!voiceDef) return null;
+
+    const lines = parsedLinesPerVoice[voiceId] || [];
+    const activeIdx = activeNoteIndices[voiceId] ?? null;
+
+    return (
+      <div className="w-full min-h-48 p-6 rounded-xl border border-slate-300 bg-white shadow-inner flex flex-col gap-8">
+        {lines.map((parsedLine, idx) => {
+          const hasLyric = !!parsedLine.lyric && parsedLine.lyric.trim().length > 0;
+          return (
+            <PlaygroundNotationLine
+              key={idx}
+              alignment={parsedLine.alignmentResult}
+              activeNoteIndex={activeIdx}
+              theme="LIGHT"
+              hasLyric={hasLyric}
+            />
+          );
+        })}
+      </div>
+    );
+  };
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <div className="mb-8 border-b pb-4">
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900">
-          Jianpu Playground
-        </h1>
-        <p className="text-slate-600 mt-2">
-          Eksperimen fitur pemutar audio notasi. Ketik teks notasi kepatihan (Jianpu) dan dengarkan hasilnya secara langsung.
-        </p>
+      <div className="mb-8 border-b pb-4 flex items-end justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+            Jianpu Playground
+          </h1>
+          <p className="text-slate-600 mt-2">
+            Eksperimen fitur pemutar audio notasi. Dukungan partitur multi-suara.
+          </p>
+        </div>
+        <div>
+          <label className="flex items-center gap-2 cursor-pointer bg-slate-100 px-3 py-1.5 rounded-full border border-slate-200">
+            <span className="text-sm font-medium text-slate-700">Partitur Mode</span>
+            <div className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${isPartiturMode ? 'bg-emerald-500' : 'bg-slate-300'}`}>
+              <input type="checkbox" className="sr-only" checked={isPartiturMode} onChange={handleTogglePartiturMode} />
+              <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${isPartiturMode ? 'translate-x-5' : 'translate-x-1'}`} />
+            </div>
+          </label>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -170,86 +372,93 @@ export default function PlaygroundPage() {
                 </span>
               )}
             </div>
-            <p className="text-xs text-slate-500">
-              Memilih lagu akan menimpa notasi, lirik, tempo, dan nada dasar di bawah ini sesuai data lagu.
-            </p>
           </div>
 
-          {/* Notation + Lyric inputs / visual preview */}
+          {/* Notation Area */}
           <div className="flex flex-col gap-2 mt-2">
-            <div className="flex justify-between items-center">
-              <label htmlFor="notation" className="font-semibold text-slate-800">
-                Notasi Angka (Jianpu)
-              </label>
-              <div className="flex bg-slate-200 rounded-lg p-1">
-                <button
-                  type="button"
-                  className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                    viewMode === "TEXT"
-                      ? "bg-white text-slate-900 shadow-sm font-medium"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
-                  onClick={() => setViewMode("TEXT")}
-                >
-                  Teks (Edit)
-                </button>
-                <button
-                  type="button"
-                  className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                    viewMode === "VISUAL"
-                      ? "bg-white text-slate-900 shadow-sm font-medium"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
-                  onClick={() => setViewMode("VISUAL")}
-                >
-                  Visual (Preview)
-                </button>
-              </div>
-            </div>
+            {isPartiturMode && (
+              <VoiceTabBar
+                voices={voices}
+                activeTab={activeTab}
+                onTabChange={setActiveTab}
+                onAddVoice={handleAddVoice}
+              />
+            )}
 
-            {viewMode === "TEXT" ? (
-              <div className="flex flex-col gap-3">
-                <textarea
-                  id="notation"
-                  className="w-full h-48 p-4 font-mono text-lg rounded-xl border border-slate-300 bg-white focus:ring-2 focus:ring-emerald-500 outline-none resize-y shadow-inner text-slate-900"
-                  value={notationText}
-                  onChange={(e) => setNotationText(e.target.value)}
-                  placeholder="Contoh: 1 2 3 4 | 5 - - - | [4 5] 6 7 | 1' - - - |"
-                />
-                <label htmlFor="lyric" className="font-semibold text-slate-800">
-                  Lirik{" "}
-                  <span className="text-xs font-normal text-slate-500">
-                    (opsional — tiap baris sesuai baris notasi)
-                  </span>
-                </label>
-                <textarea
-                  id="lyric"
-                  className="w-full h-48 p-4 font-mono text-base rounded-xl border border-slate-300 bg-white focus:ring-2 focus:ring-emerald-500 outline-none resize-y shadow-inner text-slate-900"
-                  value={lyricText}
-                  onChange={(e) => setLyricText(e.target.value)}
-                  placeholder="Contoh: si   ngo-au,  to         on."
-                />
-              </div>
-            ) : (
-              <div className="w-full min-h-48 p-6 rounded-xl border border-slate-300 bg-white overflow-y-auto shadow-inner flex flex-col gap-8">
-                {alignments.map((alignment, idx) => (
-                  <PlaygroundNotationLine
-                    key={idx}
-                    alignment={alignment}
-                    activeNoteIndex={activeNoteIndex}
-                    theme="LIGHT"
-                    hasLyric={hasLyric}
+            {!isPartiturMode || activeTab === "all" ? (
+              <>
+                <div className="flex justify-between items-center mb-2">
+                  <h2 className="font-semibold text-slate-800">
+                    Editor {isPartiturMode ? "Partitur" : "Notasi"}
+                  </h2>
+                  <div className="flex bg-slate-200 rounded-lg p-1">
+                    <button
+                      type="button"
+                      className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                        viewMode === "TEXT"
+                          ? "bg-white text-slate-900 shadow-sm font-medium"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                      onClick={() => setViewMode("TEXT")}
+                    >
+                      Teks (Edit)
+                    </button>
+                    <button
+                      type="button"
+                      className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                        viewMode === "VISUAL"
+                          ? "bg-white text-slate-900 shadow-sm font-medium"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                      onClick={() => setViewMode("VISUAL")}
+                    >
+                      Visual (Preview)
+                    </button>
+                  </div>
+                </div>
+                
+                {viewMode === "TEXT" ? (
+                  <VoiceEditorPanel
+                    voices={voices}
+                    notationByVoice={notationByVoice}
+                    lyricByVoice={lyricByVoice}
+                    enabledVoices={enabledVoices}
+                    onVoiceChange={handleVoiceChange}
+                    onVoiceDelete={handleVoiceDelete}
+                    onNotationChange={handleNotationChange}
+                    onLyricChange={handleLyricChange}
+                    onToggleVoiceEnabled={handleToggleVoiceEnabled}
                   />
-                ))}
+                ) : (
+                  <AllVoicesPreview
+                    voices={voices}
+                    enabledVoices={enabledVoices}
+                    parsedLinesPerVoice={parsedLinesPerVoice}
+                    activeNoteIndices={activeNoteIndices}
+                  />
+                )}
+              </>
+            ) : (
+              // Individual Voice Preview Tab
+              <div className="flex flex-col gap-2">
+                <div className="flex justify-between items-center mb-2">
+                  <h2 className="font-semibold text-slate-800">
+                    Preview Suara: {voices.find(v => v.id === activeTab)?.label}
+                  </h2>
+                </div>
+                {renderIndividualVoice()}
               </div>
             )}
           </div>
 
-          <NotationPlayer
-            parsedLines={parsedLines}
+          <PlaygroundPlayer
+            voices={voices}
+            parsedLinesPerVoice={parsedLinesPerVoice}
             tempo={tempo}
             songKey={songKey}
-            onActiveNoteChange={setActiveNoteIndex}
+            enabledVoices={enabledVoices}
+            activeTab={activeTab}
+            onActiveNoteChange={handleActiveNoteChange}
             className="mt-4"
           />
         </div>

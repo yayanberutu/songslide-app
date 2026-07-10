@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { getAudioContext, closeAudioContext, playTone } from "@/lib/audio-synth";
 import { calculateFrequency } from "@/lib/audio-synth";
 import { mapNotationToAudioEvents } from "@/lib/notation-player-mapper";
@@ -25,10 +25,10 @@ export function NotationPlayer({ parsedLines, tempo = 100, songKey = "C", onActi
   const startTimeRef = useRef<number>(0);
   const startDelay = 0.1;
 
-  const stopPlayback = () => {
+  const stopPlayback = useCallback(() => {
     setIsPlaying(false);
     if (playbackTimeoutRef.current) {
-      clearTimeout(playbackTimeoutRef.current);
+      window.clearTimeout(playbackTimeoutRef.current);
       playbackTimeoutRef.current = null;
     }
     if (animationFrameRef.current) {
@@ -37,7 +37,7 @@ export function NotationPlayer({ parsedLines, tempo = 100, songKey = "C", onActi
     }
     onActiveNoteChange?.(null);
     closeAudioContext();
-  };
+  }, [onActiveNoteChange]);
 
   const handlePlay = () => {
     if (isPlaying) {
@@ -118,7 +118,7 @@ export function NotationPlayer({ parsedLines, tempo = 100, songKey = "C", onActi
   // Cleanup on unmount
   useEffect(() => {
     return () => stopPlayback();
-  }, []);
+  }, [stopPlayback]);
 
   return (
     <div className={`flex items-center gap-4 p-4 border rounded-xl bg-slate-50 ${className}`}>

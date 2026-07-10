@@ -5,13 +5,17 @@ export type ArrangementSectionType = "VERSE" | "REFRAIN" | "TEXT_ONLY_VERSES";
 export type VerseLine = {
   lineOrder: number;
   notation?: string;
+  notationsByVoice?: Record<string, string>;
   lyricsByVerse?: Record<string, string>;
+  lyricsByVoiceAndVerse?: Record<string, Record<string, string>>;
 };
 
 export type RefrainLine = {
   lineOrder: number;
   notation?: string;
+  notationsByVoice?: Record<string, string>;
   lyric?: string;
+  lyricsByVoice?: Record<string, string>;
 };
 
 export type VerseSection = {
