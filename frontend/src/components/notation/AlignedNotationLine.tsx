@@ -9,10 +9,6 @@ type AlignedNotationLineProps = {
   theme?: "LIGHT" | "DARK";
 };
 
-type SlotCursor = {
-  index: number;
-};
-
 type AnchorState = {
   placed: boolean;
 };
