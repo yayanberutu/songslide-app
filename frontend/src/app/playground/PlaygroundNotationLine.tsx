@@ -442,7 +442,7 @@ export function PlaygroundNotationLine({
 
   return (
     <div className="max-w-full pb-2">
-      <div className="flex flex-wrap items-end gap-x-1 gap-y-6">
+      <div className="flex flex-nowrap items-end gap-x-1 gap-y-6 min-w-max">
         {tokensToRender.map((token, index) => {
           const lyric = lyricByTokenIndex.get(token.index) ?? null;
 
