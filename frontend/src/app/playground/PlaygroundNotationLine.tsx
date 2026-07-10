@@ -165,7 +165,7 @@ export function PlaygroundNotationToken({
             aria-hidden="true"
           >
             <span
-              className={`w-[130%] h-[1.5px] bg-current transform ${
+              className={`w-[130%] h-[2.5px] bg-current transform ${
                 token.accidental === "b" ? "rotate-45" : "-rotate-45"
               }`}
             />

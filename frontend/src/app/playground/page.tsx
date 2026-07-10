@@ -324,76 +324,6 @@ export default function PlaygroundPage() {
 
   const commonKeys = ["C", "C#", "Db", "D", "Eb", "E", "F", "F#", "Gb", "G", "Ab", "A", "Bb", "B"];
 
-  // Render individual voice tab preview
-  const renderIndividualVoice = () => {
-    const voiceId = activeTab;
-    const voiceDef = voices.find(v => v.id === voiceId);
-    if (!voiceDef) return null;
-
-    const lines = parsedLinesPerVoice[voiceId] || [];
-    const activeIdx = activeNoteIndices[voiceId] ?? null;
-
-    // Chunk the parsed line into measures based on measuresPerLine setting
-    return (
-      <div className="w-full min-h-48 p-6 rounded-xl border border-slate-300 bg-white shadow-inner flex flex-col gap-8">
-        {lines.map((parsedLine, idx) => {
-          const hasLyric = !!parsedLine.lyric && parsedLine.lyric.trim().length > 0;
-          
-          if (measuresPerLine <= 0) {
-            return (
-              <PlaygroundNotationLine
-                key={idx}
-                alignment={parsedLine.alignmentResult}
-                activeNoteIndex={activeIdx}
-                theme="LIGHT"
-                hasLyric={hasLyric}
-                voiceColor={getVoiceColorClass(voiceDef.color)}
-              />
-            );
-          }
-
-          // Split tokens into chunks
-          const chunks: NotationToken[][] = [];
-          let currentChunk: NotationToken[] = [];
-          let measureCount = 0;
-
-          for (const token of parsedLine.alignmentResult.notation.tokens) {
-            currentChunk.push(token);
-            if (token.type === "BAR" || token.type === "DOUBLE_BAR") {
-              measureCount++;
-              if (measureCount >= measuresPerLine) {
-                chunks.push(currentChunk);
-                currentChunk = [];
-                measureCount = 0;
-              }
-            }
-          }
-          if (currentChunk.length > 0) {
-            chunks.push(currentChunk);
-          }
-
-          if (chunks.length === 0) return null;
-
-          return (
-            <div key={idx} className="flex flex-col gap-6">
-              {chunks.map((chunkTokens, chunkIdx) => (
-                <PlaygroundNotationLine
-                  key={`${idx}-${chunkIdx}`}
-                  alignment={parsedLine.alignmentResult}
-                  tokensOverride={chunkTokens}
-                  activeNoteIndex={activeIdx}
-                  theme="LIGHT"
-                  hasLyric={hasLyric}
-                  voiceColor={getVoiceColorClass(voiceDef.color)}
-                />
-              ))}
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
-
   // In Visual (Preview) mode the score becomes the star: hide the sidebar and
   // give the preview the full page width. Audio/layout controls move into a
   // slim toolbar above the preview instead.
@@ -582,7 +512,13 @@ export default function PlaygroundPage() {
                     Preview Suara: {voices.find(v => v.id === activeTab)?.label}
                   </h2>
                 </div>
-                {renderIndividualVoice()}
+                <AllVoicesPreview
+                  voices={voices.filter(v => v.id === activeTab)}
+                  enabledVoices={new Set([activeTab])}
+                  parsedLinesPerVoice={parsedLinesPerVoice}
+                  activeNoteIndices={activeNoteIndices}
+                  measuresPerLine={measuresPerLine}
+                />
               </div>
             )}
           </div>
