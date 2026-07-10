@@ -6,7 +6,7 @@ import { alignPlaygroundNotationAndLyric, type PlaygroundAlignmentResult } from 
 import type { Song } from "@/lib/song-api";
 import type { ArrangementContentJson } from "@/lib/arrangement-api";
 
-import { VoiceDefinition, DEFAULT_VOICES, createVoice } from "./lib/playground-voice";
+import { VoiceDefinition, DEFAULT_VOICES, createVoice, getVoiceColorClass } from "./lib/playground-voice";
 import { VoiceTabBar } from "./VoiceTabBar";
 import { VoiceEditorPanel } from "./VoiceEditorPanel";
 import { AllVoicesPreview } from "./AllVoicesPreview";
@@ -315,6 +315,7 @@ export default function PlaygroundPage() {
               activeNoteIndex={activeIdx}
               theme="LIGHT"
               hasLyric={hasLyric}
+              voiceColor={getVoiceColorClass(voiceDef.color)}
             />
           );
         })}
