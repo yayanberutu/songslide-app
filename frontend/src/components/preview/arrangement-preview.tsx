@@ -423,7 +423,8 @@ function PreviewSlideCard({
   slideNumber,
   totalSlides,
   theme,
-  showNotation
+  showNotation,
+  activeNoteIndex
 }: {
   slide: PreviewSlide;
   slideNumber: number;
