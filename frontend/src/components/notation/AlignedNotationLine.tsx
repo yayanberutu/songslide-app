@@ -9,10 +9,6 @@ type AlignedNotationLineProps = {
   theme?: "LIGHT" | "DARK";
 };
 
-type AnchorState = {
-  placed: boolean;
-};
-
 export function AlignedNotationLine({
   notation,
   lyric,
