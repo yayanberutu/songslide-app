@@ -31,17 +31,52 @@ export function alignNotationAndLyric(notationText: string | null | undefined, l
   const notationTokens = collectLyricSlotTokens(notation.tokens);
   const notationSlotCount = countNotationLyricSlots(notation.tokens);
   const lyricCount = lyricSyllables.length;
-  const cells: AlignmentCell[] = [];
+  // Build cells with null lyric by default
+  const cells: AlignmentCell[] = notationTokens.map((tok) => ({
+    notationToken: tok,
+    anchorToken: resolveAnchorToken(tok),
+    lyric: null,
+  }));
 
-  const slotCount = Math.max(notationTokens.length, lyricSyllables.length);
-  for (let index = 0; index < slotCount; index += 1) {
-    const notationToken = notationTokens[index];
-    const lyric = lyricSyllables[index];
-    cells.push({
-      notationToken: notationToken ?? null,
-      anchorToken: notationToken ? resolveAnchorToken(notationToken) : null,
-      lyric: lyric ?? null
-    });
+  if (lyricSyllables.length === 0 || notationTokens.length === 0) {
+    if (notation.issues.length > 0) {
+      return { status: "PARSER_ERROR", notation, lyricSyllables, notationSlotCount, lyricCount, cells };
+    }
+    return {
+      status: lyricCount > notationSlotCount ? "TOO_MANY_LYRICS" : lyricCount < notationSlotCount ? "TOO_FEW_LYRICS" : "MATCH",
+      notation, lyricSyllables, notationSlotCount, lyricCount, cells
+    };
+  }
+
+  // --- Spatial nearest-neighbour assignment ---
+  // For each syllable, find the closest slot (by char index distance).
+  // A slot can only be claimed once; we keep the closest claim.
+  type Candidate = { syllable: LyricSyllable; distance: number };
+  const slotClaims = new Map<number, Candidate>(); // slotIndex → best candidate
+
+  for (const syllable of lyricSyllables) {
+    let bestSlot = -1;
+    let bestDist = Infinity;
+
+    for (let i = 0; i < notationTokens.length; i++) {
+      const dist = Math.abs(notationTokens[i].index - syllable.startIndex);
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestSlot = i;
+      }
+    }
+
+    if (bestSlot === -1) continue;
+
+    const existing = slotClaims.get(bestSlot);
+    if (!existing || bestDist < existing.distance) {
+      slotClaims.set(bestSlot, { syllable, distance: bestDist });
+    }
+  }
+
+  // Apply claims to cells
+  for (const [slotIndex, { syllable }] of slotClaims) {
+    cells[slotIndex].lyric = syllable;
   }
 
   if (notation.issues.length > 0) {
