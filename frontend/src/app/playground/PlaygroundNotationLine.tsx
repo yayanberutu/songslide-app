@@ -403,6 +403,7 @@ function PlaygroundAlignedToken({
 export type PlaygroundNotationLineProps = {
   /** Pre-parsed notation + alignment result for this line */
   alignment: PlaygroundAlignmentResult;
+  tokensOverride?: NotationTokenValue[];
   theme?: "LIGHT" | "DARK";
   activeNoteIndex?: number | null;
   /** Whether the user has entered any lyric text at all */
@@ -412,6 +413,7 @@ export type PlaygroundNotationLineProps = {
 
 export function PlaygroundNotationLine({
   alignment,
+  tokensOverride,
   theme = "LIGHT",
   activeNoteIndex = null,
   hasLyric = false,
@@ -436,10 +438,12 @@ export function PlaygroundNotationLine({
     }
   }
 
+  const tokensToRender = tokensOverride ?? alignment.notation.tokens;
+
   return (
     <div className="max-w-full pb-2">
       <div className="flex flex-wrap items-end gap-x-1 gap-y-6">
-        {alignment.notation.tokens.map((token, index) => {
+        {tokensToRender.map((token, index) => {
           const lyric = lyricByTokenIndex.get(token.index) ?? null;
 
           if (!hasLyric) {

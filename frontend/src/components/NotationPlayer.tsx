@@ -4,11 +4,11 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { getAudioContext, closeAudioContext, playTone } from "@/lib/audio-synth";
 import { calculateFrequency } from "@/lib/audio-synth";
 import { mapNotationToAudioEvents } from "@/lib/notation-player-mapper";
-import type { ParsedLineData } from "@/app/playground/page";
 import type { AudioEvent } from "@/lib/notation-player-mapper";
+import type { NotationToken as NotationTokenValue } from "@/lib/notation-parser";
 
 interface NotationPlayerProps {
-  parsedLines: ParsedLineData[];
+  parsedLines: { tokens: NotationTokenValue[] }[];
   tempo?: number;
   songKey?: string;
   onActiveNoteChange?: (noteIndex: number | null) => void;

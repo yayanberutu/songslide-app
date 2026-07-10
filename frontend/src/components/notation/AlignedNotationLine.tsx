@@ -7,14 +7,35 @@ type AlignedNotationLineProps = {
   notation: string | null | undefined;
   lyric: string | null | undefined;
   theme?: "LIGHT" | "DARK";
+  activeNoteIndex?: number | null;
+  startNoteIndex?: number;
 };
 
 export function AlignedNotationLine({
   notation,
   lyric,
-  theme = "LIGHT"
+  theme = "LIGHT",
+  activeNoteIndex = null,
+  startNoteIndex = 0
 }: AlignedNotationLineProps) {
-  const alignment = alignNotationAndLyric(notation, lyric);
+  const alignment = useMemo(() => {
+    const result = alignNotationAndLyric(notation ?? "", lyric ?? "");
+    if (result.status !== "PARSER_ERROR") {
+      let currentIndex = startNoteIndex;
+      const assignGlobalIndex = (tokens: NotationTokenValue[]) => {
+        for (const token of tokens) {
+          if (token.type === "NOTE" || token.type === "REST" || token.type === "EXTENSION") {
+            token.globalNoteIndex = currentIndex++;
+          } else if (token.type === "SLUR" || token.type === "BEAM") {
+            assignGlobalIndex(token.children);
+          }
+        }
+      };
+      assignGlobalIndex(result.notation.tokens);
+    }
+    return result;
+  }, [notation, lyric, startNoteIndex]);
+
   const isDark = theme === "DARK";
   const lyricTone = isDark ? "text-zinc-50" : "text-ink-800";
   const subtleTone = isDark ? "text-zinc-400" : "text-ink-400";
@@ -60,6 +81,7 @@ export function AlignedNotationLine({
             theme={theme}
             lyricTone={lyricTone}
             cellMap={cellMap}
+            activeNoteIndex={activeNoteIndex}
           />
         ))}
       </div>
@@ -72,17 +94,19 @@ function TopLevelToken({
   theme,
   lyricTone,
   cellMap,
+  activeNoteIndex
 }: {
   token: NotationTokenValue;
   theme: "LIGHT" | "DARK";
   lyricTone: string;
   cellMap: Map<NotationTokenValue, AlignmentCell>;
+  activeNoteIndex: number | null;
 }) {
   if (token.type === "BEAM") {
     return (
       <div className="flex flex-col items-start gap-1">
-        <NotationToken token={token} theme={theme} />
-        <BeamLyricTrack token={token} lyricTone={lyricTone} cellMap={cellMap} />
+        <NotationToken token={token} theme={theme} activeNoteIndex={activeNoteIndex} />
+        <BeamLyricTrack token={token} lyricTone={lyricTone} cellMap={cellMap} activeNoteIndex={activeNoteIndex} theme={theme} />
       </div>
     );
   }
@@ -93,21 +117,19 @@ function TopLevelToken({
 
     return (
       <div className="flex flex-col items-start gap-1">
-        <NotationToken token={token} theme={theme} />
-        <SlurLyricTrack token={token} lyric={lyric?.text ?? ""} lyricTone={lyricTone} anchorToken={cell?.anchorToken ?? null} />
+        <NotationToken token={token} theme={theme} activeNoteIndex={activeNoteIndex} />
+        <SlurLyricTrack token={token} lyric={lyric?.text ?? ""} lyricTone={lyricTone} anchorToken={cell?.anchorToken ?? null} activeNoteIndex={activeNoteIndex} theme={theme} />
       </div>
     );
   }
 
   const cell = cellMap.get(token);
-  const lyric = token.lyricSlots > 0 ? cell?.lyric ?? null : null;
+  const lyric = cell?.lyric ?? null;
 
   return (
-    <div className="flex flex-col items-center gap-1">
-      <NotationToken token={token} theme={theme} />
-      {token.lyricSlots > 0 ? (
-        <LyricSpan text={lyric?.text ?? ""} tone={lyricTone} />
-      ) : null}
+    <div className="flex flex-col items-center justify-center gap-1">
+      <NotationToken token={token} theme={theme} activeNoteIndex={activeNoteIndex} />
+      {lyric ? <LyricSpan text={lyric.text} tone={lyricTone} /> : null}
     </div>
   );
 }
@@ -116,10 +138,14 @@ function BeamLyricTrack({
   token,
   lyricTone,
   cellMap,
+  activeNoteIndex,
+  theme
 }: {
   token: NotationBeamToken;
   lyricTone: string;
   cellMap: Map<NotationTokenValue, AlignmentCell>;
+  activeNoteIndex: number | null;
+  theme: "LIGHT" | "DARK";
 }) {
   return (
     <div className="inline-flex items-start gap-1">
@@ -129,6 +155,8 @@ function BeamLyricTrack({
           token={child}
           lyricTone={lyricTone}
           cellMap={cellMap}
+          activeNoteIndex={activeNoteIndex}
+          theme={theme}
         />
       ))}
     </div>
@@ -139,27 +167,33 @@ function LyricTrackToken({
   token,
   lyricTone,
   cellMap,
+  activeNoteIndex,
+  theme
 }: {
   token: NotationTokenValue;
   lyricTone: string;
   cellMap: Map<NotationTokenValue, AlignmentCell>;
+  activeNoteIndex: number | null;
+  theme: "LIGHT" | "DARK";
 }) {
   if (token.type === "BEAM") {
-    return <BeamLyricTrack token={token} lyricTone={lyricTone} cellMap={cellMap} />;
+    return <BeamLyricTrack token={token} lyricTone={lyricTone} cellMap={cellMap} activeNoteIndex={activeNoteIndex} theme={theme} />;
   }
 
   if (token.type === "SLUR") {
     const cell = cellMap.get(token);
     const lyric = cell?.lyric ?? null;
 
-    return <SlurLyricTrack token={token} lyric={lyric?.text ?? ""} lyricTone={lyricTone} anchorToken={cell?.anchorToken ?? null} />;
+    return <SlurLyricTrack token={token} lyric={lyric?.text ?? ""} lyricTone={lyricTone} anchorToken={cell?.anchorToken ?? null} activeNoteIndex={activeNoteIndex} theme={theme} />;
   }
 
   if (token.type === "NOTE") {
     const cell = cellMap.get(token);
     const lyric = cell?.lyric ?? null;
 
-    return <LyricSpan text={lyric?.text ?? ""} tone={lyricTone} />;
+    if (lyric) {
+      return <LyricSpan text={lyric.text} tone={lyricTone} />;
+    }
   }
 
   return <PlaceholderTrack token={token} />;
@@ -169,12 +203,16 @@ function SlurLyricTrack({
   token,
   lyric,
   lyricTone,
-  anchorToken
+  anchorToken,
+  activeNoteIndex,
+  theme
 }: {
   token: NotationSlurToken;
   lyric: string;
   lyricTone: string;
   anchorToken: NotationTokenValue | null;
+  activeNoteIndex: number | null;
+  theme: "LIGHT" | "DARK";
 }) {
   return (
     <div className="inline-flex items-start gap-1">
@@ -185,6 +223,8 @@ function SlurLyricTrack({
           lyric={lyric}
           lyricTone={lyricTone}
           anchorToken={anchorToken}
+          activeNoteIndex={activeNoteIndex}
+          theme={theme}
         />
       ))}
     </div>
@@ -195,12 +235,16 @@ function SlurAnchorToken({
   token,
   lyric,
   lyricTone,
-  anchorToken
+  anchorToken,
+  activeNoteIndex,
+  theme
 }: {
   token: NotationTokenValue;
   lyric: string;
   lyricTone: string;
   anchorToken: NotationTokenValue | null;
+  activeNoteIndex: number | null;
+  theme: "LIGHT" | "DARK";
 }) {
   if (token.type === "NOTE") {
     if (token === anchorToken) {
@@ -220,6 +264,8 @@ function SlurAnchorToken({
             lyric={lyric}
             lyricTone={lyricTone}
             anchorToken={anchorToken}
+            activeNoteIndex={activeNoteIndex}
+            theme={theme}
           />
         ))}
       </div>
@@ -236,6 +282,8 @@ function SlurAnchorToken({
             lyric={lyric}
             lyricTone={lyricTone}
             anchorToken={anchorToken}
+            activeNoteIndex={activeNoteIndex}
+            theme={theme}
           />
         ))}
       </div>

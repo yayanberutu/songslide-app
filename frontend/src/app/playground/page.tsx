@@ -27,6 +27,7 @@ export default function PlaygroundPage() {
   const [viewMode, setViewMode] = useState<"TEXT" | "VISUAL">("TEXT");
   const [tempo, setTempo] = useState<number>(100);
   const [songKey, setSongKey] = useState<string>("C");
+  const [measuresPerLine, setMeasuresPerLine] = useState<number>(4);
 
   // Multi-voice state
   const [voices, setVoices] = useState<VoiceDefinition[]>([DEFAULT_VOICES[0]]);
@@ -307,19 +308,61 @@ export default function PlaygroundPage() {
     const lines = parsedLinesPerVoice[voiceId] || [];
     const activeIdx = activeNoteIndices[voiceId] ?? null;
 
+    // Chunk the parsed line into measures based on measuresPerLine setting
     return (
       <div className="w-full min-h-48 p-6 rounded-xl border border-slate-300 bg-white shadow-inner flex flex-col gap-8">
         {lines.map((parsedLine, idx) => {
           const hasLyric = !!parsedLine.lyric && parsedLine.lyric.trim().length > 0;
+          
+          if (measuresPerLine <= 0) {
+            return (
+              <PlaygroundNotationLine
+                key={idx}
+                alignment={parsedLine.alignmentResult}
+                activeNoteIndex={activeIdx}
+                theme="LIGHT"
+                hasLyric={hasLyric}
+                voiceColor={getVoiceColorClass(voiceDef.color)}
+              />
+            );
+          }
+
+          // Split tokens into chunks
+          const chunks: NotationToken[][] = [];
+          let currentChunk: NotationToken[] = [];
+          let measureCount = 0;
+
+          for (const token of parsedLine.alignmentResult.notation.tokens) {
+            currentChunk.push(token);
+            if (token.type === "BAR" || token.type === "DOUBLE_BAR") {
+              measureCount++;
+              if (measureCount >= measuresPerLine) {
+                chunks.push(currentChunk);
+                currentChunk = [];
+                measureCount = 0;
+              }
+            }
+          }
+          if (currentChunk.length > 0) {
+            chunks.push(currentChunk);
+          }
+
+          if (chunks.length === 0) return null;
+
           return (
-            <PlaygroundNotationLine
-              key={idx}
-              alignment={parsedLine.alignmentResult}
-              activeNoteIndex={activeIdx}
-              theme="LIGHT"
-              hasLyric={hasLyric}
-              voiceColor={getVoiceColorClass(voiceDef.color)}
-            />
+            <div key={idx} className="flex flex-col gap-6">
+              {chunks.map((chunkTokens, chunkIdx) => (
+                <PlaygroundNotationLine
+                  key={`${idx}-${chunkIdx}`}
+                  alignment={parsedLine.alignmentResult}
+                  tokensOverride={chunkTokens}
+                  activeNoteIndex={activeIdx}
+                  theme="LIGHT"
+                  hasLyric={hasLyric}
+                  voiceColor={getVoiceColorClass(voiceDef.color)}
+                />
+              ))}
+            </div>
           );
         })}
       </div>
@@ -439,6 +482,7 @@ export default function PlaygroundPage() {
                     enabledVoices={enabledVoices}
                     parsedLinesPerVoice={parsedLinesPerVoice}
                     activeNoteIndices={activeNoteIndices}
+                    measuresPerLine={measuresPerLine}
                   />
                 )}
               </>
@@ -504,6 +548,26 @@ export default function PlaygroundPage() {
                 />
               </div>
             </div>
+
+            {/* Layout Settings for Partitur */}
+            {viewMode === "VISUAL" && (
+              <div className="flex flex-col gap-4 mt-4 pt-4 border-t border-slate-200">
+                <div className="flex flex-col gap-2">
+                  <label className="font-semibold text-sm text-slate-700">Birama per Baris (Layout)</label>
+                  <select
+                    className="w-full p-2 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-emerald-500 outline-none text-slate-900"
+                    value={measuresPerLine}
+                    onChange={(e) => setMeasuresPerLine(parseInt(e.target.value, 10))}
+                  >
+                    <option value={0}>Auto (Jangan dipotong)</option>
+                    <option value={2}>2 Birama</option>
+                    <option value={4}>4 Birama</option>
+                    <option value={6}>6 Birama</option>
+                    <option value={8}>8 Birama</option>
+                  </select>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="bg-blue-50 p-6 rounded-xl border border-blue-200">

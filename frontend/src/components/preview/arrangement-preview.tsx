@@ -31,8 +31,10 @@ import {
 import { getSong, type Song } from "@/lib/song-api";
 import { AlignedNotationLine } from "@/components/notation/AlignedNotationLine";
 import { NotationLine } from "@/components/notation/NotationLine";
+import { NotationPlayer } from "@/components/NotationPlayer";
 import { Button, EmptyState, Field, InlineError, LoadingState, SelectInput, TextInput } from "@/components/ui";
 import { useSession } from "next-auth/react";
+import { parseNotationLine, type NotationToken as NotationTokenValue } from "@/lib/notation-parser";
 
 type ArrangementPreviewProps = {
   songId: string;
@@ -45,6 +47,8 @@ type TextSizePreset = ExportTextSizePreset;
 type PreviewLine = {
   notation: string | null;
   lyric: string | null;
+  startNoteIndex: number;
+  tokens: NotationTokenValue[];
 };
 
 type PreviewSlide = {
@@ -79,6 +83,7 @@ export function ArrangementPreview({ songId }: ArrangementPreviewProps) {
   const [exportResult, setExportResult] = useState<SongExportResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);
+  const [activeNoteIndex, setActiveNoteIndex] = useState<number | null>(null);
   const { data: session } = useSession();
   const isAdmin = session?.user?.role === "ADMIN";
 
@@ -235,6 +240,15 @@ export function ArrangementPreview({ songId }: ArrangementPreviewProps) {
             )}
           </div>
         </div>
+        {song && (
+          <NotationPlayer
+            parsedLines={slides.flatMap(s => s.lines.filter(l => l.tokens.length > 0))}
+            tempo={song.tempo ?? undefined}
+            songKey={song.defaultKey ?? undefined}
+            onActiveNoteChange={setActiveNoteIndex}
+            className="mt-4"
+          />
+        )}
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
@@ -383,6 +397,7 @@ export function ArrangementPreview({ songId }: ArrangementPreviewProps) {
                 totalSlides={slides.length}
                 theme={theme}
                 showNotation={showNotation}
+                activeNoteIndex={activeNoteIndex}
               />
             ))
           )}
@@ -415,6 +430,7 @@ function PreviewSlideCard({
   totalSlides: number;
   theme: PreviewTheme;
   showNotation: boolean;
+  activeNoteIndex: number | null;
 }) {
   const isDark = theme === "DARK";
   const visibleLines = slide.lines.filter((line) => (showNotation && hasText(line.notation)) || hasText(line.lyric));
@@ -450,10 +466,10 @@ function PreviewSlideCard({
           visibleLines.map((line, index) => (
             <div key={`${slide.key}-line-${index}`} className="space-y-1">
               {showNotation && hasText(line.notation) && hasText(line.lyric) ? (
-                <AlignedNotationLine notation={line.notation} lyric={line.lyric} theme={theme} />
+                <AlignedNotationLine notation={line.notation} lyric={line.lyric} theme={theme} activeNoteIndex={activeNoteIndex} startNoteIndex={line.startNoteIndex} />
               ) : null}
               {showNotation && hasText(line.notation) && !hasText(line.lyric) ? (
-                <NotationLine notation={line.notation} theme={theme} />
+                <NotationLine notation={line.notation} theme={theme} activeNoteIndex={activeNoteIndex} startNoteIndex={line.startNoteIndex} />
               ) : null}
               {(!showNotation || !hasText(line.notation)) && hasText(line.lyric) ? (
                 <p className={["whitespace-pre-wrap break-words text-lg leading-7 [overflow-wrap:anywhere]", isDark ? "text-zinc-50" : "text-ink-800"].join(" ")}>
@@ -485,17 +501,35 @@ function buildPreviewSlides(
   const title = slideTitle(song);
   const metadata = slideMetadata(song);
 
+  let globalNoteIndex = 0;
+
+  const buildContext = {
+    get nextStartNoteIndex() { return globalNoteIndex; },
+    advanceGlobalNoteIndex(tokens: NotationTokenValue[]) {
+      const countNotes = (tks: NotationTokenValue[]) => {
+        for (const token of tks) {
+          if (token.type === "NOTE" || token.type === "REST" || token.type === "EXTENSION") {
+            globalNoteIndex++;
+          } else if (token.type === "SLUR" || token.type === "BEAM") {
+            countNotes(token.children);
+          }
+        }
+      };
+      countNotes(tokens);
+    }
+  };
+
   selectedVerses.forEach((verseNumber) => {
-    appendVerseSlides(slides, content, verseNumber, title, metadata);
-    appendTextOnlyVerseSlides(slides, content, verseNumber, title, metadata);
+    appendVerseSlides(slides, content, verseNumber, title, metadata, buildContext);
+    appendTextOnlyVerseSlides(slides, content, verseNumber, title, metadata, buildContext);
 
     if (refrainMode === "AFTER_EACH_VERSE") {
-      appendRefrainSlides(slides, content, title, metadata);
+      appendRefrainSlides(slides, content, title, metadata, buildContext);
     }
   });
 
   if (refrainMode === "ONCE_AFTER_ALL_VERSES") {
-    appendRefrainSlides(slides, content, title, metadata);
+    appendRefrainSlides(slides, content, title, metadata, buildContext);
   }
 
   return slides;
@@ -506,7 +540,8 @@ function appendVerseSlides(
   content: ArrangementContentJson,
   verseNumber: string,
   title: string,
-  metadata: string | null
+  metadata: string | null,
+  buildContext: { nextStartNoteIndex: number; advanceGlobalNoteIndex: (tokens: NotationTokenValue[]) => void }
 ) {
   sectionsOfType<VerseSection>(content, "VERSE").forEach((section, sectionIndex) => {
     if (!sectionHasVerse(section, verseNumber)) {
@@ -514,7 +549,7 @@ function appendVerseSlides(
     }
 
     const lines = sortedLines(section.lines).reduce<PreviewLine[]>((currentLines, line) => {
-      return addPreviewLine(currentLines, line.notation, line.lyricsByVerse?.[verseNumber]);
+      return addPreviewLine(currentLines, line.notation, line.lyricsByVerse?.[verseNumber], buildContext);
     }, []);
 
     if (lines.length > 0) {
@@ -534,7 +569,8 @@ function appendTextOnlyVerseSlides(
   content: ArrangementContentJson,
   verseNumber: string,
   title: string,
-  metadata: string | null
+  metadata: string | null,
+  buildContext: { nextStartNoteIndex: number; advanceGlobalNoteIndex: (tokens: NotationTokenValue[]) => void }
 ) {
   sectionsOfType<TextOnlyVersesSection>(content, "TEXT_ONLY_VERSES").forEach((section, sectionIndex) => {
     const lyric = section.verses?.[verseNumber];
@@ -543,7 +579,7 @@ function appendTextOnlyVerseSlides(
     }
 
     const lines = lyric.split(/\r?\n/).reduce<PreviewLine[]>((currentLines, line) => {
-      return addPreviewLine(currentLines, null, line);
+      return addPreviewLine(currentLines, null, line, buildContext);
     }, []);
 
     if (lines.length > 0) {
@@ -562,11 +598,12 @@ function appendRefrainSlides(
   slides: PreviewSlide[],
   content: ArrangementContentJson,
   title: string,
-  metadata: string | null
+  metadata: string | null,
+  buildContext: { nextStartNoteIndex: number; advanceGlobalNoteIndex: (tokens: NotationTokenValue[]) => void }
 ) {
   sectionsOfType<RefrainSection>(content, "REFRAIN").forEach((section, sectionIndex) => {
     const lines = sortedLines(section.lines).reduce<PreviewLine[]>((currentLines, line) => {
-      return addPreviewLine(currentLines, line.notation, line.lyric);
+      return addPreviewLine(currentLines, line.notation, line.lyric, buildContext);
     }, []);
 
     if (lines.length > 0) {
@@ -581,11 +618,25 @@ function appendRefrainSlides(
   });
 }
 
-function addPreviewLine(lines: PreviewLine[], notation: string | null | undefined, lyric: string | null | undefined) {
+function addPreviewLine(
+  lines: PreviewLine[],
+  notation: string | null | undefined,
+  lyric: string | null | undefined,
+  buildContext: { nextStartNoteIndex: number; advanceGlobalNoteIndex: (tokens: NotationTokenValue[]) => void }
+) {
   const cleanNotation = notation?.trim() || null;
   const cleanLyric = lyric?.trim() || null;
   if (cleanNotation || cleanLyric) {
-    return [...lines, { notation: cleanNotation, lyric: cleanLyric }];
+    let tokens: NotationTokenValue[] = [];
+    const startNoteIndex = buildContext.nextStartNoteIndex;
+    
+    if (cleanNotation) {
+      const parsed = parseNotationLine(cleanNotation);
+      tokens = parsed.tokens;
+      buildContext.advanceGlobalNoteIndex(tokens);
+    }
+    
+    return [...lines, { notation: cleanNotation, lyric: cleanLyric, startNoteIndex, tokens }];
   }
   return lines;
 }
