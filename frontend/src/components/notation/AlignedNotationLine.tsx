@@ -98,7 +98,7 @@ function TopLevelToken({
     return (
       <div className="flex flex-col items-start gap-1">
         <NotationToken token={token} theme={theme} />
-        <SlurLyricTrack token={token} lyric={lyric?.text ?? ""} lyricTone={lyricTone} />
+        <SlurLyricTrack token={token} lyric={lyric?.text ?? ""} lyricTone={lyricTone} anchorToken={cell?.anchorToken ?? null} />
       </div>
     );
   }
@@ -156,7 +156,7 @@ function LyricTrackToken({
     const cell = cellMap.get(token);
     const lyric = cell?.lyric ?? null;
 
-    return <SlurLyricTrack token={token} lyric={lyric?.text ?? ""} lyricTone={lyricTone} />;
+    return <SlurLyricTrack token={token} lyric={lyric?.text ?? ""} lyricTone={lyricTone} anchorToken={cell?.anchorToken ?? null} />;
   }
 
   if (token.type === "NOTE") {
@@ -172,14 +172,14 @@ function LyricTrackToken({
 function SlurLyricTrack({
   token,
   lyric,
-  lyricTone
+  lyricTone,
+  anchorToken
 }: {
   token: NotationSlurToken;
   lyric: string;
   lyricTone: string;
+  anchorToken: NotationTokenValue | null;
 }) {
-  const anchorState = { placed: false };
-
   return (
     <div className="inline-flex items-start gap-1">
       {token.children.map((child, index) => (
@@ -188,7 +188,7 @@ function SlurLyricTrack({
           token={child}
           lyric={lyric}
           lyricTone={lyricTone}
-          anchorState={anchorState}
+          anchorToken={anchorToken}
         />
       ))}
     </div>
@@ -199,16 +199,15 @@ function SlurAnchorToken({
   token,
   lyric,
   lyricTone,
-  anchorState
+  anchorToken
 }: {
   token: NotationTokenValue;
   lyric: string;
   lyricTone: string;
-  anchorState: AnchorState;
+  anchorToken: NotationTokenValue | null;
 }) {
   if (token.type === "NOTE") {
-    if (!anchorState.placed) {
-      anchorState.placed = true;
+    if (token === anchorToken) {
       return <LyricSpan text={lyric} tone={lyricTone} />;
     }
 
@@ -224,7 +223,7 @@ function SlurAnchorToken({
             token={child}
             lyric={lyric}
             lyricTone={lyricTone}
-            anchorState={anchorState}
+            anchorToken={anchorToken}
           />
         ))}
       </div>
@@ -240,7 +239,7 @@ function SlurAnchorToken({
             token={child}
             lyric={lyric}
             lyricTone={lyricTone}
-            anchorState={anchorState}
+            anchorToken={anchorToken}
           />
         ))}
       </div>
