@@ -87,7 +87,7 @@ export function PlaygroundNotationToken({
       <span className={`${notationArea} w-3`}>
         <span
           aria-hidden="true"
-          className={`absolute top-1/2 left-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full ${extTone}`}
+          className={`absolute bottom-[16px] left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full ${extTone}`}
         />
       </span>
     );
@@ -240,7 +240,7 @@ function PlaygroundAlignedToken({
     token.type === "EXTENSION"
   ) {
     return (
-      <div className="inline-flex flex-col items-center">
+      <div className="inline-flex h-[4.5rem] flex-col items-center">
         <PlaygroundNotationToken token={token} theme={theme} activeNoteIndex={activeNoteIndex} voiceColor={voiceColor} />
         {/* Spacer so rows stay aligned */}
         <span className="h-6" />
@@ -251,7 +251,7 @@ function PlaygroundAlignedToken({
   // REST: notation only, empty lyric slot
   if (token.type === "REST") {
     return (
-      <div className="inline-flex flex-col items-center">
+      <div className="inline-flex h-[4.5rem] flex-col items-center">
         <PlaygroundNotationToken token={token} theme={theme} activeNoteIndex={activeNoteIndex} voiceColor={voiceColor} />
         <span className="h-6" />
       </div>
@@ -279,7 +279,7 @@ function PlaygroundAlignedToken({
       const ownBeamLevel = Math.min(beamDepth + 1, 2);
       const beamTopClass = ownBeamLevel === 1 ? "top-0" : "top-[3px]";
       return (
-        <div className="inline-flex flex-col items-center">
+        <div className="inline-flex h-[4.5rem] flex-col items-center">
           {/* Notation row */}
           <span className="relative inline-flex h-12 w-fit items-center justify-center px-px">
             <span
@@ -295,7 +295,7 @@ function PlaygroundAlignedToken({
               return (
                   <div
                     key={`${token.raw}-${index}`}
-                    className={`px-0.5 rounded transition-colors ${activeBgClass}`}
+                    className={`h-full flex items-center px-0.5 rounded transition-colors ${activeBgClass}`}
                   >
                     <PlaygroundNotationToken
                       token={child}
@@ -330,7 +330,7 @@ function PlaygroundAlignedToken({
 
     // SLUR — one lyric slot for the entire slur (musically correct)
     return (
-      <div className="inline-flex flex-col items-center">
+      <div className="inline-flex h-[4.5rem] flex-col items-center">
         <span className="relative inline-flex h-12 w-fit items-center justify-center px-px">
           <span className="inline-flex h-full items-center gap-1">
             {token.children.map((child, index) => {
@@ -342,7 +342,7 @@ function PlaygroundAlignedToken({
               return (
                 <div
                   key={`${token.raw}-${index}`}
-                  className={`px-0.5 rounded transition-colors ${activeBgClass}`}
+                  className={`h-full flex items-center px-0.5 rounded transition-colors ${activeBgClass}`}
                 >
                   <PlaygroundNotationToken
                     token={child}
@@ -378,7 +378,7 @@ function PlaygroundAlignedToken({
     : "border border-transparent";
 
   return (
-    <div className={`inline-flex min-w-[1.75rem] flex-col items-center px-0.5 rounded transition-colors ${activeBgClass}`}>
+    <div className={`inline-flex min-w-[1.75rem] h-[4.5rem] flex-col items-center px-0.5 rounded transition-colors ${activeBgClass}`}>
       <PlaygroundNotationToken
         token={token}
         theme={theme}
