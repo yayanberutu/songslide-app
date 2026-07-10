@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { alignNotationAndLyric, type AlignmentCell } from "@/lib/alignment";
 import { NotationLine } from "@/components/notation/NotationLine";
 import { NotationToken } from "@/components/notation/NotationToken";
