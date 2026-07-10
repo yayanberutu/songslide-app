@@ -66,6 +66,8 @@ func validateSection(sec map[string]interface{}, idx int) error {
 		return validateRefrainSection(sec, secPath)
 	case "TEXT_ONLY_VERSES":
 		return validateTextOnlyVersesSection(sec, secPath)
+	case "PARTITUR":
+		return validatePartiturSection(sec, secPath)
 	default:
 		return fmt.Errorf("%s.type '%s' is not supported", secPath, typeStr)
 	}
@@ -81,6 +83,15 @@ func validateVerseSection(sec map[string]interface{}, secPath string) error {
 func validateRefrainSection(sec map[string]interface{}, secPath string) error {
 	if lines, ok := sec["lines"]; ok && lines != nil {
 		return validateLinesArray(lines, secPath+".lines", false)
+	}
+	return nil
+}
+
+func validatePartiturSection(sec map[string]interface{}, secPath string) error {
+	if lines, ok := sec["lines"]; ok && lines != nil {
+		// Partitur lines use voices structure instead of just notation/lyricsByVerse.
+		// For simplicity, we just validate it's an array and maybe line orders.
+		return validatePartiturLinesArray(lines, secPath+".lines")
 	}
 	return nil
 }
@@ -162,6 +173,26 @@ func validateLinesArray(linesIntf interface{}, linesPath string, verseLines bool
 			if err := validateOptionalRecordText(line, "lyricsByVoice", linePath); err != nil {
 				return err
 			}
+		}
+	}
+	return nil
+}
+
+func validatePartiturLinesArray(linesIntf interface{}, linesPath string) error {
+	lines, ok := linesIntf.([]interface{})
+	if !ok {
+		return fmt.Errorf("%s must be an array", linesPath)
+	}
+
+	for i, lineIntf := range lines {
+		linePath := fmt.Sprintf("%s[%d]", linesPath, i)
+		line, ok := lineIntf.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("%s must be an object", linePath)
+		}
+
+		if err := validateLineOrder(line, linePath); err != nil {
+			return err
 		}
 	}
 	return nil

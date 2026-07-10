@@ -1,6 +1,6 @@
 import { apiRequest } from "@/lib/api-client";
 
-export type ArrangementSectionType = "VERSE" | "REFRAIN" | "TEXT_ONLY_VERSES";
+export type ArrangementSectionType = "VERSE" | "REFRAIN" | "TEXT_ONLY_VERSES" | "PARTITUR";
 
 export type VerseLine = {
   lineOrder: number;
@@ -41,7 +41,23 @@ export type TextOnlyVersesSection = {
   verses: Record<string, string>;
 };
 
-export type ArrangementSection = VerseSection | RefrainSection | TextOnlyVersesSection;
+export type PartiturLine = {
+  lineOrder: number;
+  voices: Record<string, {
+    notation: string;
+    lyric: string;
+  }>;
+};
+
+export type PartiturSection = {
+  id: string;
+  type: "PARTITUR";
+  label: string;
+  enabledVoices: string[];
+  lines: PartiturLine[];
+};
+
+export type ArrangementSection = VerseSection | RefrainSection | TextOnlyVersesSection | PartiturSection;
 
 export type ArrangementContentJson = {
   structureVersion: "1.0";

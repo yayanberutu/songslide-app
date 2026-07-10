@@ -254,6 +254,19 @@ export default function PlaygroundPage() {
               }
             }
           }
+        } else if (section.type === "PARTITUR") {
+          isPartitur = true;
+          for (const line of section.lines) {
+            if (line.voices && Object.keys(line.voices).length > 0) {
+              for (const [vId, voiceData] of Object.entries(line.voices)) {
+                if (!newNotations[vId]) newNotations[vId] = [];
+                newNotations[vId].push(voiceData.notation || "");
+                
+                if (!newLyrics[vId]) newLyrics[vId] = [];
+                newLyrics[vId].push(voiceData.lyric || "");
+              }
+            }
+          }
         }
       }
 

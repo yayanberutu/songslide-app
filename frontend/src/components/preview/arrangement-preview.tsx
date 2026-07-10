@@ -12,7 +12,8 @@ import {
   type SongArrangement,
   type TextOnlyVersesSection,
   type VerseLine,
-  type VerseSection
+  type VerseSection,
+  type PartiturSection
 } from "@/lib/arrangement-api";
 import {
   collectAvailableVerses,
@@ -35,6 +36,7 @@ import { NotationPlayer } from "@/components/NotationPlayer";
 import { Button, EmptyState, Field, InlineError, LoadingState, SelectInput, TextInput } from "@/components/ui";
 import { useSession } from "next-auth/react";
 import { parseNotationLine, type NotationToken as NotationTokenValue } from "@/lib/notation-parser";
+import { PartiturPreviewSection } from "./PartiturPreviewSection";
 
 type ArrangementPreviewProps = {
   songId: string;
@@ -110,6 +112,7 @@ export function ArrangementPreview({ songId }: ArrangementPreviewProps) {
   }, [songId]);
 
   const availableVerses = useMemo(() => collectAvailableVerses(content), [content]);
+  const partiturSections = useMemo(() => sectionsOfType<PartiturSection>(content, "PARTITUR"), [content]);
 
   useEffect(() => {
     setSelectedVerses((current) => {
@@ -383,7 +386,24 @@ export function ArrangementPreview({ songId }: ArrangementPreviewProps) {
         </aside>
 
         <div className="space-y-4">
-          {slides.length === 0 ? (
+          {song?.type === "PARTITUR" ? (
+            partiturSections.length === 0 ? (
+              <EmptyState
+                title="Belum ada partitur"
+                description="Tambahkan bagian partitur di editor."
+              />
+            ) : (
+              partiturSections.map((section) => (
+                <PartiturPreviewSection
+                  key={section.id}
+                  section={section}
+                  theme={theme}
+                  beatsPerLine={beatsPerLine}
+                  activeNoteIndices={{}} // Player not fully integrated for partitur yet
+                />
+              ))
+            )
+          ) : slides.length === 0 ? (
             <EmptyState
               title="No preview slides"
               description="Select a verse with saved verse, refrain, or text-only content."

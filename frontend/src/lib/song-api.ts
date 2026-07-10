@@ -32,10 +32,13 @@ export type NotationSourceSongSummary = {
   title: string;
 };
 
+export type SongType = "LEAD_SHEET" | "PARTITUR";
+
 export type Song = {
   id: string;
   songNumber: string;
   title: string;
+  type: SongType;
   defaultKey: string | null;
   timeSignature: string | null;
   tempo: number | null;
@@ -53,6 +56,7 @@ export type SongPayload = {
   bookCode?: string | null;
   songNumber: string;
   title: string;
+  type?: SongType;
   defaultKey?: string | null;
   timeSignature?: string | null;
   tempo?: number | null;

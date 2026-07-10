@@ -2,7 +2,8 @@ import type {
   ArrangementContentJson,
   RefrainSection,
   TextOnlyVersesSection,
-  VerseSection
+  VerseSection,
+  PartiturSection
 } from "./arrangement-api";
 
 export function collectAvailableVerses(content: ArrangementContentJson): string[] {
@@ -32,7 +33,7 @@ export function sectionHasVerse(section: VerseSection, verseNumber: string): boo
 
 export function sectionsOfType<T>(
   content: ArrangementContentJson,
-  type: T extends VerseSection ? "VERSE" : T extends RefrainSection ? "REFRAIN" : "TEXT_ONLY_VERSES"
+  type: T extends VerseSection ? "VERSE" : T extends RefrainSection ? "REFRAIN" : T extends PartiturSection ? "PARTITUR" : "TEXT_ONLY_VERSES"
 ): T[] {
   return content.sections.filter((section) => section.type === type) as T[];
 }

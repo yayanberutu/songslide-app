@@ -19,6 +19,7 @@ type Song struct {
 	TempoBpm      *int              `gorm:""`
 	Author               *string           `gorm:"type:text"`
 	Notes                *string           `gorm:"type:text"`
+	Type                 string            `gorm:"type:varchar(32);not null;default:'LEAD_SHEET'"`
 	NotationSourceSongID *uuid.UUID        `gorm:"type:uuid"`
 	NotationSourceSong   *Song             `gorm:"foreignKey:NotationSourceSongID"`
 	CreatedAt            time.Time         `gorm:"not null"`
@@ -40,6 +41,7 @@ type SongRequest struct {
 	DefaultKey           string     `json:"defaultKey" binding:"omitempty,max=32"`
 	TimeSignature        string     `json:"timeSignature" binding:"omitempty,max=32"`
 	Tempo                *int       `json:"tempo" binding:"omitempty,min=1"`
+	Type                 string     `json:"type" binding:"omitempty,oneof=LEAD_SHEET PARTITUR"`
 	AuthorText           string     `json:"authorText" binding:"omitempty,max=255"`
 	SourceNote           string     `json:"sourceNote"`
 	NotationSourceSongID *uuid.UUID `json:"notationSourceSongId" binding:"omitempty"`
@@ -63,6 +65,7 @@ type SongResponse struct {
 	SongNumber           string                             `json:"songNumber"`
 	Title                string                             `json:"title"`
 	DefaultKey           *string                            `json:"defaultKey"`
+	Type                 string                             `json:"type"`
 	TimeSignature        *string                            `json:"timeSignature"`
 	Tempo                *int                               `json:"tempo"`
 	AuthorText           *string                            `json:"authorText"`
@@ -80,6 +83,7 @@ func (s *Song) ToResponse() SongResponse {
 		SongNumber:    s.SongNumber,
 		Title:         s.Title,
 		DefaultKey:    s.KeySignature,
+		Type:          s.Type,
 		TimeSignature: s.TimeSignature,
 		Tempo:         s.TempoBpm,
 		AuthorText:    s.Author,

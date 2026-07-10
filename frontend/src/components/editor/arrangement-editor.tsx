@@ -20,6 +20,7 @@ import { getSong, type Song } from "@/lib/song-api";
 import { AlignmentStatus } from "@/components/notation/AlignmentStatus";
 import { SourceImageReference } from "@/components/source-images/source-image-reference";
 import { Button, EmptyState, Field, InlineError, LoadingState, TextArea, TextInput } from "@/components/ui";
+import { PartiturSectionEditor } from "./partitur-section-editor";
 
 type ArrangementEditorProps = {
   songId: string;
@@ -28,7 +29,8 @@ type ArrangementEditorProps = {
 const sectionDefaults = {
   VERSE: { id: "verse", label: "Ayat" },
   REFRAIN: { id: "refrain", label: "Refrein" },
-  TEXT_ONLY_VERSES: { id: "additional-verses", label: "Ayat Tambahan" }
+  TEXT_ONLY_VERSES: { id: "additional-verses", label: "Ayat Tambahan" },
+  PARTITUR: { id: "partitur", label: "Partitur (SATB)" }
 } satisfies Record<ArrangementSectionType, { id: string; label: string }>;
 
 export function ArrangementEditor({ songId }: ArrangementEditorProps) {
@@ -66,7 +68,8 @@ export function ArrangementEditor({ songId }: ArrangementEditorProps) {
   const sectionCounts = useMemo(() => ({
     verse: content.sections.filter((section) => section.type === "VERSE").length,
     refrain: content.sections.filter((section) => section.type === "REFRAIN").length,
-    textOnly: content.sections.filter((section) => section.type === "TEXT_ONLY_VERSES").length
+    textOnly: content.sections.filter((section) => section.type === "TEXT_ONLY_VERSES").length,
+    partitur: content.sections.filter((section) => section.type === "PARTITUR").length
   }), [content.sections]);
 
   async function saveContent() {
@@ -182,13 +185,21 @@ export function ArrangementEditor({ songId }: ArrangementEditorProps) {
               <div>
                 <h2 className="text-base font-semibold text-ink-950">Bagian Lagu (Sections)</h2>
                 <p className="mt-1 text-sm text-ink-500">
-                  {sectionCounts.verse} bait, {sectionCounts.refrain} reff, {sectionCounts.textOnly} bait teks.
+                  {song?.type === "PARTITUR" 
+                    ? `${sectionCounts.partitur} bagian partitur.` 
+                    : `${sectionCounts.verse} bait, ${sectionCounts.refrain} reff, ${sectionCounts.textOnly} bait teks.`}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <Button type="button" onClick={() => addSection("VERSE")}>Tambah Bait (Not Angka)</Button>
-                <Button type="button" onClick={() => addSection("REFRAIN")}>Tambah Reff (Not Angka)</Button>
-                <Button type="button" onClick={() => addSection("TEXT_ONLY_VERSES")}>Tambah Bait (Hanya Teks)</Button>
+                {song?.type === "PARTITUR" ? (
+                  <Button type="button" onClick={() => addSection("PARTITUR")}>Tambah Bagian Partitur</Button>
+                ) : (
+                  <>
+                    <Button type="button" onClick={() => addSection("VERSE")}>Tambah Bait (Not Angka)</Button>
+                    <Button type="button" onClick={() => addSection("REFRAIN")}>Tambah Reff (Not Angka)</Button>
+                    <Button type="button" onClick={() => addSection("TEXT_ONLY_VERSES")}>Tambah Bait (Hanya Teks)</Button>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -279,6 +290,9 @@ function SectionEditor({ section, index, totalSections, onChange, onDelete, onMo
       ) : null}
       {section.type === "TEXT_ONLY_VERSES" ? (
         <TextOnlyVersesEditor section={section} onChange={onChange} />
+      ) : null}
+      {section.type === "PARTITUR" ? (
+        <PartiturSectionEditor section={section} onChange={onChange} isNotationReadOnly={isNotationReadOnly} />
       ) : null}
     </article>
   );
@@ -664,6 +678,19 @@ function normalizeSection(section: ArrangementSection, index: number): Arrangeme
     };
   }
 
+  if (section.type === "PARTITUR") {
+    return {
+      id: section.id || fallbackId,
+      type: "PARTITUR",
+      label: section.label || "Partitur (SATB)",
+      enabledVoices: section.enabledVoices ?? ["sopran", "alto", "tenor", "bass"],
+      lines: renumberLines((section.lines ?? []).map((line) => ({
+        lineOrder: line.lineOrder,
+        voices: line.voices ?? {}
+      })))
+    };
+  }
+
   return {
     id: section.id || fallbackId,
     type: "TEXT_ONLY_VERSES",
@@ -705,6 +732,21 @@ function createSection(type: ArrangementSectionType, existingSections: Arrangeme
           lineOrder: 1,
           notation: "",
           lyric: ""
+        }
+      ]
+    };
+  }
+
+  if (type === "PARTITUR") {
+    return {
+      id,
+      type,
+      label: defaults.label,
+      enabledVoices: ["sopran", "alto", "tenor", "bass"],
+      lines: [
+        {
+          lineOrder: 1,
+          voices: {}
         }
       ]
     };

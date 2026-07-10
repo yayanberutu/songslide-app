@@ -22,6 +22,7 @@ type SongFormState = {
   bookCode: string;
   songNumber: string;
   title: string;
+  type: import("@/lib/song-api").SongType;
   defaultKey: string;
   timeSignature: string;
   tempo: string;
@@ -34,6 +35,7 @@ const emptySongForm: SongFormState = {
   bookCode: "",
   songNumber: "",
   title: "",
+  type: "LEAD_SHEET",
   defaultKey: "",
   timeSignature: "",
   tempo: "",
@@ -157,6 +159,7 @@ export function SongsManager() {
       bookCode: song.songBook.code,
       songNumber: song.songNumber,
       title: song.title,
+      type: song.type ?? "LEAD_SHEET",
       defaultKey: song.defaultKey ?? "",
       timeSignature: song.timeSignature ?? "",
       tempo: song.tempo?.toString() ?? "",
@@ -371,6 +374,17 @@ export function SongsManager() {
                 />
               </Field>
             </div>
+            <div className="md:col-span-2">
+              <Field label="Tipe Lagu">
+                <SelectInput
+                  value={form.type}
+                  onChange={(event) => setForm((current) => ({ ...current, type: event.target.value as import("@/lib/song-api").SongType }))}
+                >
+                  <option value="LEAD_SHEET">Lead Sheet (1 Suara)</option>
+                  <option value="PARTITUR">Partitur (Multi-Suara / SATB)</option>
+                </SelectInput>
+              </Field>
+            </div>
             <Field label="Key">
               <TextInput
                 maxLength={32}
@@ -451,6 +465,7 @@ function toSongPayload(form: SongFormState): SongPayload {
     bookCode: form.bookCode.trim().toUpperCase(),
     songNumber: form.songNumber.trim(),
     title: form.title.trim(),
+    type: form.type,
     defaultKey: emptyToNull(form.defaultKey),
     timeSignature: emptyToNull(form.timeSignature),
     tempo: form.tempo.trim() ? Number(form.tempo) : null,
