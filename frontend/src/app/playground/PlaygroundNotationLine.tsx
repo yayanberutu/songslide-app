@@ -237,7 +237,7 @@ function PlaygroundAlignedToken({
       <div className="inline-flex flex-col items-center">
         <PlaygroundNotationToken token={token} theme={theme} activeNoteIndex={activeNoteIndex} voiceColor={voiceColor} />
         {/* Spacer so rows stay aligned */}
-        <span className="h-4" />
+        <span className="h-6" />
       </div>
     );
   }
@@ -247,7 +247,7 @@ function PlaygroundAlignedToken({
     return (
       <div className="inline-flex flex-col items-center">
         <PlaygroundNotationToken token={token} theme={theme} activeNoteIndex={activeNoteIndex} voiceColor={voiceColor} />
-        <span className="h-4" />
+        <span className="h-6" />
       </div>
     );
   }
@@ -311,7 +311,7 @@ function PlaygroundAlignedToken({
               return (
                 <span
                   key={index}
-                  className={`inline-flex min-w-4 justify-center text-sm font-semibold leading-none ${lyricTone}`}
+                  className={`inline-flex h-6 min-w-4 items-center justify-center text-sm font-semibold leading-none whitespace-nowrap ${lyricTone}`}
                 >
                   {childLyric}
                 </span>
@@ -322,17 +322,17 @@ function PlaygroundAlignedToken({
       );
     }
 
-    // SLUR
+    // SLUR — one lyric slot for the entire slur (musically correct)
     return (
       <div className="inline-flex flex-col items-center">
         <span className="relative inline-flex h-12 w-fit items-center justify-center px-px">
           <span className="inline-flex h-full items-center gap-1">
             {token.children.map((child, index) => {
               const isActiveNote = activeNoteIndex !== null && activeNoteIndex === child.globalNoteIndex;
-              const activeBgClass = isActiveNote 
+              const activeBgClass = isActiveNote
                 ? (voiceColor ? `${voiceColor.replace("text-", "bg-").replace("-500", "-100")} border ${voiceColor.replace("text-", "border-")}` : "bg-emerald-100 border border-emerald-300")
                 : "border border-transparent";
-              
+
               return (
                 <div
                   key={`${token.raw}-${index}`}
@@ -355,20 +355,11 @@ function PlaygroundAlignedToken({
             style={{ borderRadius: "0 0 50% 50% / 0 0 100% 100%" }}
           />
         </span>
-        {/* Lyric row */}
-        <span className="inline-flex gap-1">
-          {token.children.map((child, index) => {
-            const cell = childCells[index];
-            const childLyric = cell?.lyric?.text ?? "";
-            return (
-              <span
-                key={index}
-                className={`inline-flex min-w-4 justify-center text-sm font-semibold leading-none ${lyricTone}`}
-              >
-                {childLyric}
-              </span>
-            );
-          })}
+        {/* Single lyric centered under the entire slur */}
+        <span
+          className={`inline-flex h-6 min-w-4 items-center justify-center text-sm font-semibold leading-none whitespace-nowrap ${lyricTone}`}
+        >
+          {lyric ?? ""}
         </span>
       </div>
     );
@@ -381,7 +372,7 @@ function PlaygroundAlignedToken({
     : "border border-transparent";
 
   return (
-    <div className={`inline-flex flex-col items-center px-0.5 rounded transition-colors ${activeBgClass}`}>
+    <div className={`inline-flex min-w-[1.75rem] flex-col items-center px-0.5 rounded transition-colors ${activeBgClass}`}>
       <PlaygroundNotationToken
         token={token}
         theme={theme}
@@ -390,7 +381,7 @@ function PlaygroundAlignedToken({
         voiceColor={voiceColor}
       />
       <span
-        className={`inline-flex min-w-4 justify-center text-sm font-semibold leading-none ${lyricTone} whitespace-nowrap`}
+        className={`inline-flex h-6 min-w-4 items-center justify-center text-sm font-semibold leading-none ${lyricTone} whitespace-nowrap`}
       >
         {lyric ?? ""}
       </span>
@@ -431,18 +422,13 @@ export function PlaygroundNotationLine({
   }
 
   // Build a quick lookup: notationToken index → lyric text
-  const lyricByTokenIndex = new Map<number, string>();
-  for (const cell of alignment.cells) {
-    if (cell.notationToken && cell.lyric) {
-      lyricByTokenIndex.set(cell.notationToken.index, cell.lyric.text);
-    }
-  }
+  const lyricByTokenIndex = buildLyricByTokenIndex(alignment.cells);
 
   const tokensToRender = tokensOverride ?? alignment.notation.tokens;
 
   return (
     <div className="max-w-full pb-2">
-      <div className="flex flex-nowrap items-end gap-x-1 gap-y-6 min-w-max">
+      <div className="flex flex-nowrap items-start gap-x-1 gap-y-6 min-w-max">
         {tokensToRender.map((token, index) => {
           const lyric = lyricByTokenIndex.get(token.index) ?? null;
 
@@ -474,6 +460,113 @@ export function PlaygroundNotationLine({
           );
         })}
       </div>
+    </div>
+  );
+}
+
+// ─── Shared helpers for the cross-voice measure grid ─────────────────────────
+
+/** notationToken.index → lyric text, from a resolved alignment. */
+export function buildLyricByTokenIndex(
+  cells: PlaygroundAlignmentCell[]
+): Map<number, string> {
+  const map = new Map<number, string>();
+  for (const cell of cells) {
+    if (cell.notationToken && cell.lyric) {
+      map.set(cell.notationToken.index, cell.lyric.text);
+    }
+  }
+  return map;
+}
+
+export type PlaygroundMeasureData = {
+  /** Content tokens of the measure (bar tokens are stripped out). */
+  tokens: NotationTokenValue[];
+  /** Whether the measure ended with a double bar line. */
+  double: boolean;
+};
+
+/**
+ * Splits a voice's tokens into measures on BAR / DOUBLE_BAR boundaries.
+ * The bar tokens themselves are removed — in the grid they are drawn as the
+ * right border of each measure cell so they line up across voices.
+ */
+export function splitTokensIntoMeasures(
+  tokens: NotationTokenValue[]
+): PlaygroundMeasureData[] {
+  const measures: PlaygroundMeasureData[] = [];
+  let current: NotationTokenValue[] = [];
+
+  for (const token of tokens) {
+    if (token.type === "BAR" || token.type === "DOUBLE_BAR") {
+      measures.push({ tokens: current, double: token.type === "DOUBLE_BAR" });
+      current = [];
+    } else {
+      current.push(token);
+    }
+  }
+  if (current.length > 0) {
+    measures.push({ tokens: current, double: false });
+  }
+  return measures;
+}
+
+/**
+ * Renders the notes + lyrics of a SINGLE measure for one voice. Notes are
+ * spread evenly (justify-around) so they fill the width of their grid cell,
+ * giving the "auto-fit" behaviour. Every column uses the same fixed-height
+ * bands as PlaygroundNotationLine, so baselines stay aligned.
+ */
+export function PlaygroundMeasure({
+  tokens,
+  cells,
+  lyricByTokenIndex,
+  hasLyric,
+  theme = "LIGHT",
+  activeNoteIndex = null,
+  voiceColor,
+}: {
+  tokens: NotationTokenValue[];
+  cells: PlaygroundAlignmentCell[];
+  lyricByTokenIndex: Map<number, string>;
+  hasLyric: boolean;
+  theme?: "LIGHT" | "DARK";
+  activeNoteIndex?: number | null;
+  voiceColor?: string;
+}) {
+  const isDark = theme === "DARK";
+  const lyricTone = isDark ? "text-zinc-300" : "text-ink-600";
+
+  return (
+    <div className="flex w-full items-start justify-around gap-x-1">
+      {tokens.map((token, index) => {
+        if (!hasLyric) {
+          return (
+            <PlaygroundNotationToken
+              key={index}
+              token={token}
+              theme={theme}
+              activeNoteIndex={activeNoteIndex}
+              voiceColor={voiceColor}
+            />
+          );
+        }
+
+        const lyric = lyricByTokenIndex.get(token.index) ?? null;
+        return (
+          <PlaygroundAlignedToken
+            key={index}
+            token={token}
+            lyric={lyric}
+            theme={theme}
+            beamDepth={0}
+            activeNoteIndex={activeNoteIndex}
+            lyricTone={lyricTone}
+            cells={cells}
+            voiceColor={voiceColor}
+          />
+        );
+      })}
     </div>
   );
 }

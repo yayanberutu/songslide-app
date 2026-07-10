@@ -24,6 +24,8 @@ export const VOICE_COLORS = [
   "teal",
 ];
 
+export const VOICE_ORDER = ["sopran", "alto", "tenor", "bass"];
+
 export const DEFAULT_VOICES: VoiceDefinition[] = [
   { id: "sopran", label: "Sopran", waveform: "sine", color: "emerald" },
   { id: "alto", label: "Alto", waveform: "triangle", color: "blue" },

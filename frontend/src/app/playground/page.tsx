@@ -6,7 +6,7 @@ import { alignPlaygroundNotationAndLyric, type PlaygroundAlignmentResult } from 
 import type { Song } from "@/lib/song-api";
 import type { ArrangementContentJson } from "@/lib/arrangement-api";
 
-import { VoiceDefinition, DEFAULT_VOICES, createVoice, getVoiceColorClass } from "./lib/playground-voice";
+import { VoiceDefinition, DEFAULT_VOICES, VOICE_ORDER, createVoice, getVoiceColorClass } from "./lib/playground-voice";
 import { VoiceTabBar } from "./VoiceTabBar";
 import { VoiceEditorPanel } from "./VoiceEditorPanel";
 import { AllVoicesPreview } from "./AllVoicesPreview";
@@ -50,6 +50,9 @@ export default function PlaygroundPage() {
 
   // Parsed lines cache
   const [parsedLinesPerVoice, setParsedLinesPerVoice] = useState<Record<string, ParsedLineData[]>>({});
+  // When data is loaded from DB, lyrics are already in correct 1:1 order with
+  // notation slots, so we use sequential alignment instead of spatial.
+  const [loadedFromDb, setLoadedFromDb] = useState(false);
 
   // --- Helpers to switch modes gracefully ---
   const handleTogglePartiturMode = () => {
@@ -109,10 +112,12 @@ export default function PlaygroundPage() {
   };
 
   const handleNotationChange = (voiceId: string, value: string) => {
+    setLoadedFromDb(false);
     setNotationByVoice(prev => ({ ...prev, [voiceId]: value }));
   };
 
   const handleLyricChange = (voiceId: string, value: string) => {
+    setLoadedFromDb(false);
     setLyricByVoice(prev => ({ ...prev, [voiceId]: value }));
   };
 
@@ -160,7 +165,8 @@ export default function PlaygroundPage() {
         assignGlobalIndex(result.tokens);
         
         const lyricLine = lyricLines[i] ?? "";
-        const alignmentResult = alignPlaygroundNotationAndLyric(result, lyricLine);
+        const alignmentMode = loadedFromDb ? "sequential" : "spatial";
+        const alignmentResult = alignPlaygroundNotationAndLyric(result, lyricLine, alignmentMode);
         
         return {
           raw: line,
@@ -173,7 +179,7 @@ export default function PlaygroundPage() {
     }
     
     setParsedLinesPerVoice(newParsed);
-  }, [voices, notationByVoice, lyricByVoice]);
+  }, [voices, notationByVoice, lyricByVoice, loadedFromDb]);
 
   // --- Load from DB ---
   useEffect(() => {
@@ -273,6 +279,11 @@ export default function PlaygroundPage() {
       if (isPartitur) {
         setIsPartiturMode(true);
         const voiceIds = Object.keys(newNotations);
+        voiceIds.sort((a, b) => {
+          const ia = VOICE_ORDER.indexOf(a);
+          const ib = VOICE_ORDER.indexOf(b);
+          return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+        });
         const newVoices = voiceIds.map((vId, idx) => {
           const matchDefault = DEFAULT_VOICES.find(d => d.id === vId);
           if (matchDefault) return matchDefault;
@@ -300,6 +311,7 @@ export default function PlaygroundPage() {
         setLyricByVoice({ [firstVoice.id]: (newLyrics[defaultVoiceId] || []).join("\n") });
       }
 
+      setLoadedFromDb(true);
       setViewMode("VISUAL");
       setActiveTab("all");
     } catch (err) {
@@ -382,8 +394,13 @@ export default function PlaygroundPage() {
     );
   };
 
+  // In Visual (Preview) mode the score becomes the star: hide the sidebar and
+  // give the preview the full page width. Audio/layout controls move into a
+  // slim toolbar above the preview instead.
+  const showSidebar = viewMode !== "VISUAL";
+
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <div className="container mx-auto px-4 py-8 max-w-7xl">
       <div className="mb-8 border-b pb-4 flex items-end justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-slate-900">
@@ -404,8 +421,8 @@ export default function PlaygroundPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <div className="md:col-span-2 flex flex-col gap-4">
+      <div className={`grid grid-cols-1 gap-8 ${showSidebar ? "md:grid-cols-3" : ""}`}>
+        <div className={`flex flex-col gap-4 ${showSidebar ? "md:col-span-2" : ""}`}>
           {/* Load from DB */}
           <div className="flex flex-col gap-2 bg-slate-50 p-4 rounded-xl border border-slate-200">
             <label htmlFor="songSelect" className="font-semibold text-slate-800">
@@ -443,6 +460,64 @@ export default function PlaygroundPage() {
                 onTabChange={setActiveTab}
                 onAddVoice={handleAddVoice}
               />
+            )}
+
+            {/* Slim control toolbar shown in Visual (Preview) mode, since the
+                sidebar is hidden to give the score full width. */}
+            {viewMode === "VISUAL" && (
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-3 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
+                <PlaygroundPlayer
+                  voices={voices}
+                  parsedLinesPerVoice={parsedLinesPerVoice}
+                  tempo={tempo}
+                  songKey={songKey}
+                  enabledVoices={enabledVoices}
+                  activeTab={activeTab}
+                  onActiveNoteChange={handleActiveNoteChange}
+                  compact
+                />
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium text-slate-600">Nada Dasar</label>
+                  <select
+                    className="p-1.5 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-emerald-500 outline-none text-slate-900 text-sm"
+                    value={songKey}
+                    onChange={(e) => setSongKey(e.target.value)}
+                  >
+                    {commonKeys.map((k) => (
+                      <option key={k} value={k}>
+                        {k}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium text-slate-600">Tempo</label>
+                  <input
+                    type="range"
+                    min="40"
+                    max="240"
+                    step="1"
+                    value={tempo}
+                    onChange={(e) => setTempo(parseInt(e.target.value, 10))}
+                    className="w-32 accent-emerald-500"
+                  />
+                  <span className="text-emerald-600 font-bold text-sm w-8">{tempo}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium text-slate-600">Birama / Baris</label>
+                  <select
+                    className="p-1.5 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-emerald-500 outline-none text-slate-900 text-sm"
+                    value={measuresPerLine}
+                    onChange={(e) => setMeasuresPerLine(parseInt(e.target.value, 10))}
+                  >
+                    <option value={0}>Auto (Jangan dipotong)</option>
+                    <option value={2}>2 Birama</option>
+                    <option value={4}>4 Birama</option>
+                    <option value={6}>6 Birama</option>
+                    <option value={8}>8 Birama</option>
+                  </select>
+                </div>
+              </div>
             )}
 
             {!isPartiturMode || activeTab === "all" ? (
@@ -512,19 +587,23 @@ export default function PlaygroundPage() {
             )}
           </div>
 
-          <PlaygroundPlayer
-            voices={voices}
-            parsedLinesPerVoice={parsedLinesPerVoice}
-            tempo={tempo}
-            songKey={songKey}
-            enabledVoices={enabledVoices}
-            activeTab={activeTab}
-            onActiveNoteChange={handleActiveNoteChange}
-            className="mt-4"
-          />
+          {viewMode !== "VISUAL" && (
+            <PlaygroundPlayer
+              voices={voices}
+              parsedLinesPerVoice={parsedLinesPerVoice}
+              tempo={tempo}
+              songKey={songKey}
+              enabledVoices={enabledVoices}
+              activeTab={activeTab}
+              onActiveNoteChange={handleActiveNoteChange}
+              className="mt-4"
+            />
+          )}
         </div>
 
-        {/* Sidebar */}
+        {/* Sidebar — only in Text (Edit) mode; in Visual mode controls move to
+            the slim toolbar and the preview takes the full width. */}
+        {showSidebar && (
         <div className="flex flex-col gap-6">
           <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
             <h2 className="text-lg font-bold mb-4 border-b pb-2 text-slate-900">Pengaturan Audio</h2>
@@ -561,26 +640,6 @@ export default function PlaygroundPage() {
                 />
               </div>
             </div>
-
-            {/* Layout Settings for Partitur */}
-            {viewMode === "VISUAL" && (
-              <div className="flex flex-col gap-4 mt-4 pt-4 border-t border-slate-200">
-                <div className="flex flex-col gap-2">
-                  <label className="font-semibold text-sm text-slate-700">Birama per Baris (Layout)</label>
-                  <select
-                    className="w-full p-2 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-emerald-500 outline-none text-slate-900"
-                    value={measuresPerLine}
-                    onChange={(e) => setMeasuresPerLine(parseInt(e.target.value, 10))}
-                  >
-                    <option value={0}>Auto (Jangan dipotong)</option>
-                    <option value={2}>2 Birama</option>
-                    <option value={4}>4 Birama</option>
-                    <option value={6}>6 Birama</option>
-                    <option value={8}>8 Birama</option>
-                  </select>
-                </div>
-              </div>
-            )}
           </div>
 
           <div className="bg-blue-50 p-6 rounded-xl border border-blue-200">
@@ -606,6 +665,7 @@ export default function PlaygroundPage() {
             </div>
           </div>
         </div>
+        )}
       </div>
     </div>
   );

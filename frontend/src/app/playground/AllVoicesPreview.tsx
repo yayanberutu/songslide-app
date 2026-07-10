@@ -2,8 +2,14 @@
 
 import React from "react";
 import { VoiceDefinition, getVoiceColorClass } from "./lib/playground-voice";
-import { PlaygroundNotationLine } from "./PlaygroundNotationLine";
+import {
+  PlaygroundMeasure,
+  splitTokensIntoMeasures,
+  buildLyricByTokenIndex,
+  type PlaygroundMeasureData,
+} from "./PlaygroundNotationLine";
 import { ParsedLineData } from "./page";
+import type { PlaygroundAlignmentCell } from "./lib/playground-alignment";
 
 interface AllVoicesPreviewProps {
   voices: VoiceDefinition[];
@@ -14,7 +20,15 @@ interface AllVoicesPreviewProps {
   theme?: "LIGHT" | "DARK";
 }
 
-import { type NotationToken } from "@/lib/notation-parser";
+// Per-voice, pre-computed data for one text line.
+type VoiceLineData = {
+  voice: VoiceDefinition;
+  measures: PlaygroundMeasureData[];
+  cells: PlaygroundAlignmentCell[];
+  lyricMap: Map<number, string>;
+  hasLyric: boolean;
+  activeNoteIndex: number | null;
+};
 
 export function AllVoicesPreview({
   voices,
@@ -24,10 +38,9 @@ export function AllVoicesPreview({
   measuresPerLine = 4,
   theme = "LIGHT",
 }: AllVoicesPreviewProps) {
-  // Find the maximum number of lines across all voices
-  let maxLines = 0;
   const enabledVoiceList = voices.filter((v) => enabledVoices.has(v.id));
 
+  let maxLines = 0;
   for (const voice of enabledVoiceList) {
     const lines = parsedLinesPerVoice[voice.id] || [];
     maxLines = Math.max(maxLines, lines.length);
@@ -41,127 +54,122 @@ export function AllVoicesPreview({
     );
   }
 
-  // We render line by line (as parsed from the text area).
   const lines = Array.from({ length: maxLines }).map((_, lineIndex) => {
-    // Collect the tokens for each voice for THIS lineIndex
-    const voiceTokensList: { voice: VoiceDefinition; tokens: NotationToken[]; parsedLine: ParsedLineData }[] = [];
-    
+    // Collect + pre-split each voice's tokens for THIS line.
+    const voiceLineData: VoiceLineData[] = [];
+    let maxMeasures = 0;
+
     for (const voice of enabledVoiceList) {
-      const voiceLines = parsedLinesPerVoice[voice.id] || [];
-      const parsedLine = voiceLines[lineIndex];
-      if (parsedLine) {
-        voiceTokensList.push({ voice, tokens: parsedLine.alignmentResult.notation.tokens, parsedLine });
-      }
-    }
+      const parsedLine = (parsedLinesPerVoice[voice.id] || [])[lineIndex];
+      if (!parsedLine) continue;
 
-    if (voiceTokensList.length === 0) return null;
-
-    // If auto (<= 0), just render exactly like before
-    if (measuresPerLine <= 0) {
-      return (
-        <div key={`line-${lineIndex}`} className="flex flex-col gap-2 p-4 border border-slate-200 rounded-xl bg-white shadow-sm overflow-x-auto">
-          <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-            Baris {lineIndex + 1}
-          </div>
-          {voiceTokensList.map(({ voice, parsedLine }) => {
-            const hasLyric = !!parsedLine.lyric && parsedLine.lyric.trim().length > 0;
-            const activeNoteIndex = activeNoteIndices[voice.id] ?? null;
-            return (
-              <div key={`${lineIndex}-${voice.id}`} className="flex flex-col mb-4 last:mb-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 ${getVoiceColorClass(voice.color)}`}>
-                    {voice.label}
-                  </span>
-                </div>
-                <div className="pl-2 border-l-2 border-slate-100">
-                  <PlaygroundNotationLine
-                    alignment={parsedLine.alignmentResult}
-                    theme={theme}
-                    activeNoteIndex={activeNoteIndex}
-                    hasLyric={hasLyric}
-                    voiceColor={getVoiceColorClass(voice.color)}
-                  />
-                </div>
-              </div>
-            );
-          })}
-        </div>
+      const cells = parsedLine.alignmentResult.cells;
+      const measures = splitTokensIntoMeasures(
+        parsedLine.alignmentResult.notation.tokens
       );
+      voiceLineData.push({
+        voice,
+        measures,
+        cells,
+        lyricMap: buildLyricByTokenIndex(cells),
+        hasLyric: !!parsedLine.lyric && parsedLine.lyric.trim().length > 0,
+        activeNoteIndex: activeNoteIndices[voice.id] ?? null,
+      });
+      maxMeasures = Math.max(maxMeasures, measures.length);
     }
 
-    // Otherwise, chunk the tokens.
-    // We determine the maximum number of chunks across all voices.
-    // A chunk is completed after seeing `measuresPerLine` BAR or DOUBLE_BAR tokens.
-    const allVoiceChunks: { voice: VoiceDefinition; parsedLine: ParsedLineData; chunks: NotationToken[][] }[] = [];
-    let maxChunks = 0;
+    if (voiceLineData.length === 0 || maxMeasures === 0) return null;
 
-    for (const { voice, tokens, parsedLine } of voiceTokensList) {
-      const chunks: NotationToken[][] = [];
-      let currentChunk: NotationToken[] = [];
-      let measureCount = 0;
+    // How many measures per rendered "potongan" (0 / auto => keep on one line).
+    const perLine =
+      measuresPerLine > 0 ? measuresPerLine : maxMeasures;
+    const numPotongan = Math.max(1, Math.ceil(maxMeasures / perLine));
 
-      for (const token of tokens) {
-        currentChunk.push(token);
-        if (token.type === "BAR" || token.type === "DOUBLE_BAR") {
-          measureCount++;
-          if (measureCount >= measuresPerLine) {
-            chunks.push(currentChunk);
-            currentChunk = [];
-            measureCount = 0;
-          }
-        }
-      }
-      if (currentChunk.length > 0) {
-        chunks.push(currentChunk);
-      }
-      allVoiceChunks.push({ voice, parsedLine, chunks });
-      maxChunks = Math.max(maxChunks, chunks.length);
-    }
-
-    // Render each chunk
     return (
       <div key={`line-${lineIndex}`} className="flex flex-col gap-6">
-        {Array.from({ length: maxChunks }).map((_, chunkIndex) => (
-          <div key={`chunk-${chunkIndex}`} className="flex flex-col gap-2 p-4 border border-slate-200 rounded-xl bg-white shadow-sm overflow-x-auto">
-            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-              Baris {lineIndex + 1} {maxChunks > 1 ? `(Potongan ${chunkIndex + 1})` : ""}
+        {Array.from({ length: numPotongan }).map((_, potonganIdx) => {
+          const startMeasure = potonganIdx * perLine;
+          const colCount = Math.min(perLine, maxMeasures - startMeasure);
+          if (colCount <= 0) return null;
+
+          // A column shows a double bar if ANY voice ends that measure with `||`.
+          const doubleFlags: boolean[] = [];
+          for (let c = 0; c < colCount; c++) {
+            const measureIndex = startMeasure + c;
+            doubleFlags[c] = voiceLineData.some(
+              (v) => v.measures[measureIndex]?.double
+            );
+          }
+
+          return (
+            <div
+              key={`potongan-${potonganIdx}`}
+              className="p-4 border border-slate-200 rounded-xl bg-white shadow-sm overflow-x-auto"
+            >
+              <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
+                Baris {lineIndex + 1}
+                {numPotongan > 1 ? ` (Potongan ${potonganIdx + 1})` : ""}
+              </div>
+
+              <div
+                className="grid w-full items-stretch"
+                style={{
+                  gridTemplateColumns: `auto repeat(${colCount}, minmax(min-content, 1fr))`,
+                }}
+              >
+                {voiceLineData.map((vData) => (
+                  <React.Fragment key={vData.voice.id}>
+                    {/* Voice label */}
+                    <div className="flex items-center py-2 pr-3">
+                      <span
+                        className={`text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 whitespace-nowrap ${getVoiceColorClass(
+                          vData.voice.color
+                        )}`}
+                      >
+                        {vData.voice.label}
+                      </span>
+                    </div>
+
+                    {/* One cell per measure column */}
+                    {Array.from({ length: colCount }).map((_, c) => {
+                      const measureIndex = startMeasure + c;
+                      const measure = vData.measures[measureIndex];
+                      const isDouble = doubleFlags[c];
+
+                      return (
+                        <div
+                          key={c}
+                          className={`px-2 py-2 border-r ${
+                            isDouble
+                              ? "border-r-2 border-slate-400"
+                              : "border-slate-300"
+                          } ${c === 0 ? "border-l border-slate-200" : ""}`}
+                        >
+                          {measure && measure.tokens.length > 0 ? (
+                            <PlaygroundMeasure
+                              tokens={measure.tokens}
+                              cells={vData.cells}
+                              lyricByTokenIndex={vData.lyricMap}
+                              hasLyric={vData.hasLyric}
+                              theme={theme}
+                              activeNoteIndex={vData.activeNoteIndex}
+                              voiceColor={getVoiceColorClass(vData.voice.color)}
+                            />
+                          ) : (
+                            <div className="h-[4.5rem]" />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </React.Fragment>
+                ))}
+              </div>
             </div>
-            {allVoiceChunks.map(({ voice, parsedLine, chunks }) => {
-              const chunkTokens = chunks[chunkIndex];
-              if (!chunkTokens || chunkTokens.length === 0) return null;
-
-              const hasLyric = !!parsedLine.lyric && parsedLine.lyric.trim().length > 0;
-              const activeNoteIndex = activeNoteIndices[voice.id] ?? null;
-
-              return (
-                <div key={`${lineIndex}-${chunkIndex}-${voice.id}`} className="flex flex-col mb-4 last:mb-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 ${getVoiceColorClass(voice.color)}`}>
-                      {voice.label}
-                    </span>
-                  </div>
-                  <div className="pl-2 border-l-2 border-slate-100">
-                    <PlaygroundNotationLine
-                      alignment={parsedLine.alignmentResult}
-                      tokensOverride={chunkTokens}
-                      theme={theme}
-                      activeNoteIndex={activeNoteIndex}
-                      hasLyric={hasLyric}
-                      voiceColor={getVoiceColorClass(voice.color)}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ))}
+          );
+        })}
       </div>
     );
   });
 
-  return (
-    <div className="flex flex-col gap-6">
-      {lines}
-    </div>
-  );
+  return <div className="flex flex-col gap-6">{lines}</div>;
 }

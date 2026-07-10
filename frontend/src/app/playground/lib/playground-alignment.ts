@@ -37,7 +37,8 @@ export type PlaygroundAlignmentResult = {
  */
 export function alignPlaygroundNotationAndLyric(
   notation: NotationParseResult,
-  lyricText: string | null | undefined
+  lyricText: string | null | undefined,
+  mode: "spatial" | "sequential" = "spatial"
 ): PlaygroundAlignmentResult {
   const lyricSyllables = parsePlaygroundLyricSyllables(lyricText);
   const notationTokens = collectLyricSlotTokens(notation.tokens);
@@ -53,35 +54,44 @@ export function alignPlaygroundNotationAndLyric(
     return { notation, lyricSyllables, cells };
   }
 
-  // --- Spatial nearest-neighbour assignment ---
-  // For each syllable, find the closest slot (by char index distance).
-  // A slot can only be claimed once; we keep the closest claim.
-  type Candidate = { syllable: PlaygroundLyricSyllable; distance: number };
-  const slotClaims = new Map<number, Candidate>(); // slotIndex → best candidate
+  if (mode === "sequential") {
+    // Sequential: syllable[i] → slot[i], 1:1 in order.
+    // Used when lyrics come from DB where ordering is already correct.
+    const limit = Math.min(lyricSyllables.length, notationTokens.length);
+    for (let i = 0; i < limit; i++) {
+      cells[i].lyric = lyricSyllables[i];
+    }
+  } else {
+    // --- Spatial nearest-neighbour assignment ---
+    // For each syllable, find the closest slot (by char index distance).
+    // A slot can only be claimed once; we keep the closest claim.
+    type Candidate = { syllable: PlaygroundLyricSyllable; distance: number };
+    const slotClaims = new Map<number, Candidate>(); // slotIndex → best candidate
 
-  for (const syllable of lyricSyllables) {
-    let bestSlot = -1;
-    let bestDist = Infinity;
+    for (const syllable of lyricSyllables) {
+      let bestSlot = -1;
+      let bestDist = Infinity;
 
-    for (let i = 0; i < notationTokens.length; i++) {
-      const dist = Math.abs(notationTokens[i].index - syllable.startIndex);
-      if (dist < bestDist) {
-        bestDist = dist;
-        bestSlot = i;
+      for (let i = 0; i < notationTokens.length; i++) {
+        const dist = Math.abs(notationTokens[i].index - syllable.startIndex);
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestSlot = i;
+        }
+      }
+
+      if (bestSlot === -1) continue;
+
+      const existing = slotClaims.get(bestSlot);
+      if (!existing || bestDist < existing.distance) {
+        slotClaims.set(bestSlot, { syllable, distance: bestDist });
       }
     }
 
-    if (bestSlot === -1) continue;
-
-    const existing = slotClaims.get(bestSlot);
-    if (!existing || bestDist < existing.distance) {
-      slotClaims.set(bestSlot, { syllable, distance: bestDist });
+    // Apply claims to cells
+    for (const [slotIndex, { syllable }] of slotClaims) {
+      cells[slotIndex].lyric = syllable;
     }
-  }
-
-  // Apply claims to cells
-  for (const [slotIndex, { syllable }] of slotClaims) {
-    cells[slotIndex].lyric = syllable;
   }
 
   return { notation, lyricSyllables, cells };
