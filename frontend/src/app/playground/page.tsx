@@ -4,14 +4,13 @@ import React, { useState, useEffect, useCallback } from "react";
 import { parseNotationLine, type NotationToken, type NotationParserIssue } from "@/lib/notation-parser";
 import { alignPlaygroundNotationAndLyric, type PlaygroundAlignmentResult } from "./lib/playground-alignment";
 import type { Song } from "@/lib/song-api";
-import type { ArrangementContentJson } from "@/lib/arrangement-api";
+import type { ArrangementContentJson, VerseLine, RefrainLine, PartiturLine } from "@/lib/arrangement-api";
 
-import { VoiceDefinition, DEFAULT_VOICES, VOICE_ORDER, createVoice, getVoiceColorClass } from "./lib/playground-voice";
+import { VoiceDefinition, DEFAULT_VOICES, VOICE_ORDER, createVoice } from "./lib/playground-voice";
 import { VoiceTabBar } from "./VoiceTabBar";
 import { VoiceEditorPanel } from "./VoiceEditorPanel";
 import { AllVoicesPreview } from "./AllVoicesPreview";
 import { PlaygroundPlayer } from "./PlaygroundPlayer";
-import { PlaygroundNotationLine } from "./PlaygroundNotationLine";
 
 export type ParsedLineData = {
   raw: string;
@@ -53,6 +52,12 @@ export default function PlaygroundPage() {
   // When data is loaded from DB, lyrics are already in correct 1:1 order with
   // notation slots, so we use sequential alignment instead of spatial.
   const [loadedFromDb, setLoadedFromDb] = useState(false);
+
+  // Multi-verse states
+  const [availableVerses, setAvailableVerses] = useState<string[]>(["1"]);
+  const [selectedVerse, setSelectedVerse] = useState<string>("1");
+  // raw lyrics parsed by voice and verse from DB
+  const [lyricsByVoiceAndVerse, setLyricsByVoiceAndVerse] = useState<Record<string, Record<string, string[]>>>({});
 
   // --- Helpers to switch modes gracefully ---
   const handleTogglePartiturMode = () => {
@@ -181,6 +186,18 @@ export default function PlaygroundPage() {
     setParsedLinesPerVoice(newParsed);
   }, [voices, notationByVoice, lyricByVoice, loadedFromDb]);
 
+  // Sync lyricByVoice with the selectedVerse when it changes (only for DB-loaded songs)
+  useEffect(() => {
+    if (!loadedFromDb) return;
+    const flatLyrics: Record<string, string> = {};
+    Object.keys(lyricsByVoiceAndVerse).forEach((voiceId) => {
+      const verseMap = lyricsByVoiceAndVerse[voiceId] || {};
+      const lyricsArray = verseMap[selectedVerse] || verseMap["1"] || [];
+      flatLyrics[voiceId] = lyricsArray.join("\n");
+    });
+    setLyricByVoice(flatLyrics);
+  }, [selectedVerse, lyricsByVoiceAndVerse, loadedFromDb]);
+
   // --- Load from DB ---
   useEffect(() => {
     import("@/lib/song-api").then((api) => {
@@ -213,68 +230,142 @@ export default function PlaygroundPage() {
       
       let isPartitur = false;
       const newNotations: Record<string, string[]> = {};
-      const newLyrics: Record<string, string[]> = {};
       
       // Default to voice 0 if single voice
       const defaultVoiceId = voices[0]?.id || DEFAULT_VOICES[0].id;
 
+      // 1. Scan and collect all unique verse numbers across the entire arrangement
+      const uniqueVerses = new Set<string>();
       for (const section of content.sections) {
-        if (section.type === "VERSE" || section.type === "REFRAIN") {
+        if (section.type === "VERSE") {
           for (const line of section.lines) {
-            // Check for partitur fields
-            if (line.notationsByVoice && Object.keys(line.notationsByVoice).length > 0) {
+            const vLine = line as VerseLine;
+            if (vLine.lyricsByVerse) {
+              Object.keys(vLine.lyricsByVerse).forEach((vNum) => uniqueVerses.add(vNum));
+            }
+            if (vLine.lyricsByVoiceAndVerse) {
+              Object.values(vLine.lyricsByVoiceAndVerse).forEach((voiceVerseMap) => {
+                Object.keys(voiceVerseMap).forEach((vNum) => uniqueVerses.add(vNum));
+              });
+            }
+          }
+        } else if (section.type === "PARTITUR") {
+          for (const line of section.lines) {
+            const pLine = line as PartiturLine;
+            if (pLine.voices) {
+              Object.values(pLine.voices).forEach((voiceData) => {
+                if (voiceData.lyricsByVerse) {
+                  Object.keys(voiceData.lyricsByVerse).forEach((vNum) => uniqueVerses.add(vNum));
+                }
+                if (voiceData.lyric) {
+                  uniqueVerses.add("1");
+                }
+              });
+            }
+          }
+        }
+      }
+
+      const sortedVerses = [...uniqueVerses].sort((a, b) => Number(a) - Number(b));
+      if (sortedVerses.length === 0) {
+        sortedVerses.push("1");
+      }
+
+      // Initialize raw lyrics accumulator map
+      const voiceLyricsMap: Record<string, Record<string, string[]>> = {};
+
+      const initVoiceLyrics = (voiceId: string) => {
+        if (!voiceLyricsMap[voiceId]) {
+          voiceLyricsMap[voiceId] = {};
+          sortedVerses.forEach((vNum) => {
+            voiceLyricsMap[voiceId][vNum] = [];
+          });
+        }
+      };
+
+      // 2. Loop through sections to build notations and multi-verse lyrics
+      for (const section of content.sections) {
+        if (section.type === "VERSE") {
+          for (const line of section.lines) {
+            const vLine = line as VerseLine;
+            if (vLine.notationsByVoice && Object.keys(vLine.notationsByVoice).length > 0) {
               isPartitur = true;
-              for (const [vId, notation] of Object.entries(line.notationsByVoice)) {
+              for (const [vId, notation] of Object.entries(vLine.notationsByVoice)) {
                 if (!newNotations[vId]) newNotations[vId] = [];
                 newNotations[vId].push(notation);
                 
-                if (!newLyrics[vId]) newLyrics[vId] = [];
+                initVoiceLyrics(vId);
                 
-                // Try to find lyric for this voice
-                if (section.type === "VERSE") {
-                  if ("lyricsByVoiceAndVerse" in line && line.lyricsByVoiceAndVerse?.[vId]) {
-                    newLyrics[vId].push(Object.values(line.lyricsByVoiceAndVerse[vId])[0] ?? "");
-                  } else {
-                    newLyrics[vId].push("");
-                  }
-                } else if (section.type === "REFRAIN") {
-                  if ("lyricsByVoice" in line && line.lyricsByVoice?.[vId]) {
-                    newLyrics[vId].push(line.lyricsByVoice[vId] ?? "");
-                  } else {
-                    newLyrics[vId].push("");
-                  }
-                }
+                sortedVerses.forEach((vNum) => {
+                  const lyricVal = vLine.lyricsByVoiceAndVerse?.[vId]?.[vNum] || vLine.lyricsByVerse?.[vNum] || "";
+                  voiceLyricsMap[vId][vNum].push(lyricVal);
+                });
               }
-            } else if (line.notation) {
-              // Single voice fallback
+            } else if (vLine.notation) {
               if (!newNotations[defaultVoiceId]) newNotations[defaultVoiceId] = [];
-              newNotations[defaultVoiceId].push(line.notation);
+              newNotations[defaultVoiceId].push(vLine.notation);
               
-              if (!newLyrics[defaultVoiceId]) newLyrics[defaultVoiceId] = [];
-              if ("lyric" in line) {
-                newLyrics[defaultVoiceId].push(line.lyric ?? "");
-              } else if ("lyricsByVerse" in line && line.lyricsByVerse) {
-                newLyrics[defaultVoiceId].push(Object.values(line.lyricsByVerse)[0] ?? "");
-              } else {
-                newLyrics[defaultVoiceId].push("");
+              initVoiceLyrics(defaultVoiceId);
+              
+              sortedVerses.forEach((vNum) => {
+                const lyricVal = vLine.lyricsByVerse?.[vNum] || "";
+                voiceLyricsMap[defaultVoiceId][vNum].push(lyricVal);
+              });
+            }
+          }
+        } else if (section.type === "REFRAIN") {
+          for (const line of section.lines) {
+            const rLine = line as RefrainLine;
+            if (rLine.notationsByVoice && Object.keys(rLine.notationsByVoice).length > 0) {
+              isPartitur = true;
+              for (const [vId, notation] of Object.entries(rLine.notationsByVoice)) {
+                if (!newNotations[vId]) newNotations[vId] = [];
+                newNotations[vId].push(notation);
+                
+                initVoiceLyrics(vId);
+                
+                sortedVerses.forEach((vNum) => {
+                  const lyricVal = rLine.lyricsByVoice?.[vId] || rLine.lyric || "";
+                  voiceLyricsMap[vId][vNum].push(lyricVal);
+                });
               }
+            } else if (rLine.notation) {
+              if (!newNotations[defaultVoiceId]) newNotations[defaultVoiceId] = [];
+              newNotations[defaultVoiceId].push(rLine.notation);
+              
+              initVoiceLyrics(defaultVoiceId);
+              
+              sortedVerses.forEach((vNum) => {
+                const lyricVal = rLine.lyric || "";
+                voiceLyricsMap[defaultVoiceId][vNum].push(lyricVal);
+              });
             }
           }
         } else if (section.type === "PARTITUR") {
           isPartitur = true;
           for (const line of section.lines) {
-            if (line.voices && Object.keys(line.voices).length > 0) {
-              for (const [vId, voiceData] of Object.entries(line.voices)) {
+            const pLine = line as PartiturLine;
+            if (pLine.voices && Object.keys(pLine.voices).length > 0) {
+              for (const [vId, voiceData] of Object.entries(pLine.voices)) {
                 if (!newNotations[vId]) newNotations[vId] = [];
                 newNotations[vId].push(voiceData.notation || "");
                 
-                if (!newLyrics[vId]) newLyrics[vId] = [];
-                newLyrics[vId].push(voiceData.lyric || "");
+                initVoiceLyrics(vId);
+                
+                sortedVerses.forEach((vNum) => {
+                  const lyricsByVerse = voiceData.lyricsByVerse ?? {};
+                  const lyricVal = lyricsByVerse[vNum] || (vNum === "1" ? voiceData.lyric : "") || "";
+                  voiceLyricsMap[vId][vNum].push(lyricVal);
+                });
               }
             }
           }
         }
       }
+
+      setAvailableVerses(sortedVerses);
+      setSelectedVerse(sortedVerses[0] || "1");
+      setLyricsByVoiceAndVerse(voiceLyricsMap);
 
       if (isPartitur) {
         setIsPartiturMode(true);
@@ -287,7 +378,6 @@ export default function PlaygroundPage() {
         const newVoices = voiceIds.map((vId, idx) => {
           const matchDefault = DEFAULT_VOICES.find(d => d.id === vId);
           if (matchDefault) return matchDefault;
-          // Capitalize first letter for label
           const label = vId.charAt(0).toUpperCase() + vId.slice(1);
           return createVoice(vId, label, idx);
         });
@@ -295,20 +385,16 @@ export default function PlaygroundPage() {
         setEnabledVoices(new Set(voiceIds));
         
         const flatNotations: Record<string, string> = {};
-        const flatLyrics: Record<string, string> = {};
         for (const vId of voiceIds) {
           flatNotations[vId] = newNotations[vId].join("\n");
-          flatLyrics[vId] = newLyrics[vId].join("\n");
         }
         setNotationByVoice(flatNotations);
-        setLyricByVoice(flatLyrics);
       } else {
         setIsPartiturMode(false);
         const firstVoice = voices[0] || DEFAULT_VOICES[0];
         setVoices([firstVoice]);
         setEnabledVoices(new Set([firstVoice.id]));
         setNotationByVoice({ [firstVoice.id]: (newNotations[defaultVoiceId] || []).join("\n") });
-        setLyricByVoice({ [firstVoice.id]: (newLyrics[defaultVoiceId] || []).join("\n") });
       }
 
       setLoadedFromDb(true);
@@ -446,6 +532,28 @@ export default function PlaygroundPage() {
                     <option value={6}>6 Birama</option>
                     <option value={8}>8 Birama</option>
                   </select>
+                </div>
+              </div>
+            )}
+
+            {availableVerses.length > 1 && viewMode === "VISUAL" && (
+              <div className="flex items-center gap-2 mt-2 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2">
+                <span className="text-sm font-semibold text-slate-600 mr-2">Pilih Ayat:</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {availableVerses.map((verseNumber) => (
+                    <button
+                      key={verseNumber}
+                      type="button"
+                      onClick={() => setSelectedVerse(verseNumber)}
+                      className={`px-3 py-1 text-xs rounded-full font-bold transition-all ${
+                        selectedVerse === verseNumber
+                          ? "bg-emerald-500 text-white shadow-sm"
+                          : "bg-white text-slate-600 border border-zinc-200 hover:bg-slate-100"
+                      }`}
+                    >
+                      Ayat {verseNumber}
+                    </button>
+                  ))}
                 </div>
               </div>
             )}

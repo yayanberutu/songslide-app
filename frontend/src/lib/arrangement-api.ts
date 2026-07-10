@@ -46,6 +46,7 @@ export type PartiturLine = {
   voices: Record<string, {
     notation: string;
     lyric: string;
+    lyricsByVerse?: Record<string, string>;
   }>;
 };
 

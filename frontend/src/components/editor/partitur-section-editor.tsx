@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { type ArrangementSection, type PartiturLine, type PartiturSection } from "@/lib/arrangement-api";
 import { AlignmentStatus } from "@/components/notation/AlignmentStatus";
 import { Button, EmptyState, Field, TextInput } from "@/components/ui";
@@ -19,6 +20,9 @@ export function PartiturSectionEditor({
   isNotationReadOnly?: boolean;
 }) {
   const enabledVoices = section.enabledVoices ?? ["sopran", "alto", "tenor", "bass"];
+  const [newVerseNumber, setNewVerseNumber] = useState("");
+
+  const verseNumbers = collectPartiturVerseNumbers(section);
 
   function updateLines(lines: PartiturLine[]) {
     onChange({
@@ -44,11 +48,18 @@ export function PartiturSectionEditor({
   }
 
   function addLine() {
+    // Populate lyricsByVerse with empty strings for all known verses
+    const lyricsByVerse = Object.fromEntries(verseNumbers.map((v) => [v, ""]));
+    const voicesData: Record<string, { notation: string; lyric: string; lyricsByVerse: Record<string, string> }> = {};
+    enabledVoices.forEach((voiceId) => {
+      voicesData[voiceId] = { notation: "", lyric: "", lyricsByVerse };
+    });
+
     updateLines([
       ...section.lines,
       {
         lineOrder: section.lines.length + 1,
-        voices: {}
+        voices: voicesData
       }
     ]);
   }
@@ -57,33 +68,110 @@ export function PartiturSectionEditor({
     updateLines(section.lines.map((current, lineIndex) => (lineIndex === index ? line : current)));
   }
 
+  function addVerseNumber() {
+    const nextVerse = newVerseNumber.trim();
+    if (!isPositiveVerseNumber(nextVerse) || verseNumbers.includes(nextVerse)) {
+      return;
+    }
+    
+    updateLines(section.lines.map((line) => {
+      const nextVoices = { ...line.voices };
+      enabledVoices.forEach((voiceId) => {
+        const voiceData = nextVoices[voiceId] ?? { notation: "", lyric: "" };
+        const lyricsByVerse = { ...(voiceData.lyricsByVerse ?? {}) };
+        
+        // Migrate legacy single lyric to lyricsByVerse["1"] if needed
+        if (voiceData.lyric && !lyricsByVerse["1"]) {
+          lyricsByVerse["1"] = voiceData.lyric;
+        }
+
+        nextVoices[voiceId] = {
+          ...voiceData,
+          lyricsByVerse: {
+            ...lyricsByVerse,
+            [nextVerse]: ""
+          }
+        };
+      });
+      return {
+        ...line,
+        voices: nextVoices
+      };
+    }));
+    setNewVerseNumber("");
+  }
+
+  function deleteVerseNumber(verseNumber: string) {
+    updateLines(section.lines.map((line) => {
+      const nextVoices = { ...line.voices };
+      Object.keys(nextVoices).forEach((voiceId) => {
+        const voiceData = nextVoices[voiceId];
+        if (voiceData) {
+          const lyricsByVerse = { ...(voiceData.lyricsByVerse ?? {}) };
+          delete lyricsByVerse[verseNumber];
+          nextVoices[voiceId] = {
+            ...voiceData,
+            lyricsByVerse
+          };
+        }
+      });
+      return {
+        ...line,
+        voices: nextVoices
+      };
+    }));
+  }
+
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 rounded-md bg-zinc-50 p-3 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-sm font-medium text-ink-950">Pengaturan Suara</p>
-          <p className="mt-1 text-sm text-ink-500">
-            Pilih suara yang aktif pada bagian ini.
-          </p>
+      <div className="flex flex-col gap-4 rounded-md bg-zinc-50 p-4 border border-zinc-200">
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between border-b border-zinc-200 pb-3">
+          <div>
+            <p className="text-sm font-semibold text-ink-950">Pengaturan Suara</p>
+            <p className="mt-1 text-sm text-ink-500">
+              Pilih suara yang aktif pada bagian ini.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-end gap-2">
+            {ALL_VOICES.map((voice) => {
+              const isEnabled = enabledVoices.includes(voice.id);
+              return (
+                <button
+                  key={voice.id}
+                  type="button"
+                  onClick={() => toggleVoice(voice.id)}
+                  className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+                    isEnabled
+                      ? "bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
+                      : "bg-white text-zinc-600 border border-zinc-200 hover:bg-zinc-50"
+                  }`}
+                >
+                  {voice.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
-        <div className="flex flex-wrap items-end gap-2">
-          {ALL_VOICES.map((voice) => {
-            const isEnabled = enabledVoices.includes(voice.id);
-            return (
-              <button
-                key={voice.id}
-                type="button"
-                onClick={() => toggleVoice(voice.id)}
-                className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-                  isEnabled
-                    ? "bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
-                    : "bg-white text-zinc-600 border border-zinc-200 hover:bg-zinc-50"
-                }`}
-              >
-                {voice.label}
-              </button>
-            );
-          })}
+
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-ink-950">Verse lyric columns</p>
+            <p className="mt-1 text-sm text-ink-500">
+              Current verses: {verseNumbers.length ? verseNumbers.join(", ") : "none"}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="space-y-1">
+              <span className="text-sm font-medium text-ink-700">Verse number</span>
+              <TextInput
+                inputMode="numeric"
+                value={newVerseNumber}
+                onChange={(event) => setNewVerseNumber(event.target.value)}
+                placeholder="1"
+              />
+            </label>
+            <Button type="button" onClick={addVerseNumber}>Add verse column</Button>
+          </div>
         </div>
       </div>
 
@@ -94,8 +182,8 @@ export function PartiturSectionEditor({
       ) : (
         <div className="space-y-3">
           {section.lines.map((line, index) => (
-            <div key={`${section.id}-line-${index}`} className="rounded-md border border-zinc-200 p-3">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div key={`${section.id}-line-${index}`} className="rounded-md border border-zinc-200 p-3 bg-white">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b pb-2">
                 <p className="text-sm font-semibold text-ink-950">Baris {index + 1}</p>
                 <LineActions
                   index={index}
@@ -110,10 +198,17 @@ export function PartiturSectionEditor({
                   const notation = line.voices[voiceId]?.notation ?? "";
                   const lyric = line.voices[voiceId]?.lyric ?? "";
                   
+                  // Setup lyricsByVerse and handle legacy lyric migration on the fly
+                  const lyricsByVerse = { ...(line.voices[voiceId]?.lyricsByVerse ?? {}) };
+                  if (lyric && !lyricsByVerse["1"]) {
+                    lyricsByVerse["1"] = lyric;
+                  }
+
                   return (
                     <div key={voiceId} className="space-y-3 border-l-2 border-indigo-200 pl-3">
-                      <p className="text-sm font-medium text-indigo-900">{voiceDef?.label}</p>
-                      <div className="grid gap-3 md:grid-cols-2">
+                      <p className="text-sm font-bold text-indigo-900">{voiceDef?.label}</p>
+                      
+                      <div className="space-y-3">
                         <Field label="Not Angka">
                           <TextInput
                             value={notation}
@@ -121,28 +216,55 @@ export function PartiturSectionEditor({
                               ...line,
                               voices: {
                                 ...line.voices,
-                                [voiceId]: { notation: event.target.value, lyric }
+                                [voiceId]: {
+                                  notation: event.target.value,
+                                  lyric,
+                                  lyricsByVerse
+                                }
                               }
                             })}
                             placeholder="5 .6 5 5 6 | 1 .2 1 .6"
                             disabled={isNotationReadOnly}
                           />
                         </Field>
-                        <Field label="Lirik">
-                          <TextInput
-                            value={lyric}
-                            onChange={(event) => updateLine(index, {
-                              ...line,
-                              voices: {
-                                ...line.voices,
-                                [voiceId]: { notation, lyric: event.target.value }
-                              }
-                            })}
-                            placeholder={`Lirik untuk ${voiceDef?.label}`}
-                          />
-                        </Field>
+
+                        <div className="grid gap-3 md:grid-cols-2">
+                          {verseNumbers.map((verseNumber) => {
+                            const verseLyric = lyricsByVerse[verseNumber] ?? "";
+                            return (
+                              <div key={verseNumber} className="space-y-1">
+                                <Field label={`Ayat ${verseNumber} Lirik`}>
+                                  <TextInput
+                                    value={verseLyric}
+                                    onChange={(event) => {
+                                      const nextLyricsByVerse = {
+                                        ...lyricsByVerse,
+                                        [verseNumber]: event.target.value
+                                      };
+                                      // Sync legacy field if editing Ayat 1
+                                      const nextLegacyLyric = verseNumber === "1" ? event.target.value : lyric;
+                                      
+                                      updateLine(index, {
+                                        ...line,
+                                        voices: {
+                                          ...line.voices,
+                                          [voiceId]: {
+                                            notation,
+                                            lyric: nextLegacyLyric,
+                                            lyricsByVerse: nextLyricsByVerse
+                                          }
+                                        }
+                                      });
+                                    }}
+                                    placeholder={`Lirik Ayat ${verseNumber} untuk ${voiceDef?.label}`}
+                                  />
+                                </Field>
+                                <AlignmentStatus notation={notation} lyric={verseLyric} />
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
-                      <AlignmentStatus notation={notation} lyric={lyric} />
                     </div>
                   );
                 })}
@@ -154,9 +276,36 @@ export function PartiturSectionEditor({
 
       <div className="flex flex-wrap gap-2">
         <Button type="button" onClick={addLine}>Tambah baris</Button>
+        {verseNumbers.map((verseNumber) => (
+          <Button key={verseNumber} type="button" variant="danger" onClick={() => deleteVerseNumber(verseNumber)}>
+            Hapus Ayat {verseNumber}
+          </Button>
+        ))}
       </div>
     </div>
   );
+}
+
+function collectPartiturVerseNumbers(section: PartiturSection): string[] {
+  const verseNumbers = new Set<string>();
+  section.lines.forEach((line) => {
+    Object.values(line.voices).forEach((voiceData) => {
+      Object.keys(voiceData.lyricsByVerse ?? {}).forEach((verseNumber) => {
+        verseNumbers.add(verseNumber);
+      });
+      if (voiceData.lyric && (!voiceData.lyricsByVerse || Object.keys(voiceData.lyricsByVerse).length === 0)) {
+        verseNumbers.add("1");
+      }
+    });
+  });
+  if (verseNumbers.size === 0) {
+    verseNumbers.add("1");
+  }
+  return [...verseNumbers].sort((a, b) => Number(a) - Number(b));
+}
+
+function isPositiveVerseNumber(value: string) {
+  return /^[1-9][0-9]*$/.test(value);
 }
 
 function NotationSyntaxHint() {
