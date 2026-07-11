@@ -1,5 +1,4 @@
-import React from "react";
-import type { NotationToken as NotationTokenValue } from "@/lib/notation-parser";
+import { collectLyricSlotTokens, type NotationToken as NotationTokenValue } from "@/lib/notation-parser";
 import type {
   PlaygroundAlignmentCell,
   PlaygroundAlignmentResult,
@@ -264,16 +263,11 @@ function PlaygroundAlignedToken({
     const beamTone = isDark ? "bg-cyan-100/85" : "bg-ink-950/80";
     const slurTone = isDark ? "border-cyan-100/70" : "border-ink-950/60";
 
-    // Find cells for each child note
-    const childCells = token.children.map((child) => {
-      const matchingCell = cells.find((c) => {
-        const tok = c.notationToken;
-        if (!tok) return false;
-        // Match by reference character index
-        return tok.index === child.index;
-      });
-      return matchingCell ?? null;
-    });
+    // Find first non-empty lyric in the slur's children cells (recursively resolving nested tokens)
+    const leafSlotTokens = collectLyricSlotTokens(token.children);
+    const lyric = leafSlotTokens
+      .map((leaf) => cells.find((c) => c.notationToken?.index === leaf.index)?.lyric?.text)
+      .find((text) => !!text);
 
     if (token.type === "BEAM") {
       const ownBeamLevel = Math.min(beamDepth + 1, 2);
@@ -309,10 +303,10 @@ function PlaygroundAlignedToken({
               })}
             </span>
           </span>
-          {/* Lyric row — one slot per child */}
+          {/* Lyric row — one slot per leaf child */}
           <span className="inline-flex gap-1">
-            {token.children.map((child, index) => {
-              const cell = childCells[index];
+            {collectLyricSlotTokens(token.children).map((leafChild, index) => {
+              const cell = cells.find((c) => c.notationToken?.index === leafChild.index);
               const childLyric = cell?.lyric?.text ?? "";
               return (
                 <span
