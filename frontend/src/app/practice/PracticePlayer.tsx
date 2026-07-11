@@ -59,7 +59,8 @@ export function PracticePlayer({
     if (isPlaying) {
       playerRef.current?.stop();
     }
-  }, [enabledVoices, playerRef, isPlaying]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabledVoices, playerRef]);
 
   const handlePlay = () => {
     if (!playerRef.current) return;
