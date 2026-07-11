@@ -82,7 +82,8 @@ export function playTone(
   duration: number,
   isSlur: boolean = false,
   waveform: OscillatorType = "sine",
-  volume: number = 0.5
+  volume: number = 0.5,
+  destinationNode?: AudioNode
 ) {
   if (frequency === 0) return; // Rest
 
@@ -101,14 +102,14 @@ export function playTone(
 
   gain.gain.setValueAtTime(0, startTime);
   gain.gain.linearRampToValueAtTime(volume, startTime + attackTime);
-  
+
   // Keep volume constant
   gain.gain.setValueAtTime(volume, startTime + safeDuration - releaseTime);
   // Fade out
   gain.gain.linearRampToValueAtTime(0, startTime + safeDuration);
 
   osc.connect(gain);
-  gain.connect(ctx.destination);
+  gain.connect(destinationNode ?? ctx.destination);
 
   osc.start(startTime);
   osc.stop(startTime + safeDuration);

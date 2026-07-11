@@ -18,6 +18,8 @@ interface AllVoicesPreviewProps {
   activeNoteIndices: Record<string, number | null>;
   measuresPerLine?: number;
   theme?: "LIGHT" | "DARK";
+  onLineClick?: (lineIndex: number) => void;
+  activeLineIndex?: number | null;
 }
 
 // Per-voice, pre-computed data for one text line.
@@ -37,6 +39,8 @@ export function AllVoicesPreview({
   activeNoteIndices,
   measuresPerLine = 4,
   theme = "LIGHT",
+  onLineClick,
+  activeLineIndex,
 }: AllVoicesPreviewProps) {
   const enabledVoiceList = voices.filter((v) => enabledVoices.has(v.id));
 
@@ -101,12 +105,17 @@ export function AllVoicesPreview({
             );
           }
 
+          const isActiveLine = activeLineIndex === lineIndex;
+
           return (
             <div
               key={`potongan-${potonganIdx}`}
-              className="p-4 border border-slate-200 rounded-xl bg-white shadow-sm overflow-x-auto"
+              className={`p-3 sm:p-4 border rounded-xl bg-white shadow-sm overflow-x-auto ${
+                isActiveLine ? "border-emerald-400 ring-2 ring-emerald-100" : "border-slate-200"
+              } ${onLineClick ? "cursor-pointer hover:border-emerald-300 transition-colors" : ""}`}
+              onClick={onLineClick ? () => onLineClick(lineIndex) : undefined}
             >
-              <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
+              <div className="text-[10px] sm:text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 sm:mb-3">
                 Baris {lineIndex + 1}
                 {numPotongan > 1 ? ` (Potongan ${potonganIdx + 1})` : ""}
               </div>
@@ -120,9 +129,9 @@ export function AllVoicesPreview({
                 {voiceLineData.map((vData) => (
                   <React.Fragment key={vData.voice.id}>
                     {/* Voice label */}
-                    <div className="flex items-center py-2 pr-3">
+                    <div className="flex items-center py-1.5 sm:py-2 pr-2 sm:pr-3">
                       <span
-                        className={`text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 whitespace-nowrap ${getVoiceColorClass(
+                        className={`text-[10px] sm:text-xs font-semibold px-1.5 sm:px-2 py-0.5 rounded-full bg-slate-100 whitespace-nowrap ${getVoiceColorClass(
                           vData.voice.color
                         )}`}
                       >

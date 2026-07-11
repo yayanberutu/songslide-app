@@ -155,6 +155,7 @@ export function UsersManager() {
                     >
                       <option value="ADMIN">ADMIN</option>
                       <option value="MULTIMEDIA">MULTIMEDIA</option>
+                      <option value="PADUS">PADUS</option>
                     </select>
                   </td>
                   <td className="px-4 py-3 text-ink-500">
@@ -206,6 +207,7 @@ export function UsersManager() {
             >
               <option value="MULTIMEDIA">Multimedia (Hanya bisa export)</option>
               <option value="ADMIN">Admin (Bisa edit lagu & tambah user)</option>
+              <option value="PADUS">Paduan Suara (Hanya latihan)</option>
             </SelectInput>
           </Field>
           

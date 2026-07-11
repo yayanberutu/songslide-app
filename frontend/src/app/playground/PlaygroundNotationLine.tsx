@@ -263,11 +263,12 @@ function PlaygroundAlignedToken({
     const beamTone = isDark ? "bg-cyan-100/85" : "bg-ink-950/80";
     const slurTone = isDark ? "border-cyan-100/70" : "border-ink-950/60";
 
-    // Find first non-empty lyric in the slur's children cells (recursively resolving nested tokens)
     const leafSlotTokens = collectLyricSlotTokens(token.children);
-    const lyric = leafSlotTokens
+    // Use the lyric prop (mapped to the SLUR/BEAM token itself by alignment),
+    // fall back to searching children cells for backward compatibility
+    const resolvedLyric = lyric ?? leafSlotTokens
       .map((leaf) => cells.find((c) => c.notationToken?.index === leaf.index)?.lyric?.text)
-      .find((text) => !!text);
+      .find((text) => !!text) ?? null;
 
     if (token.type === "BEAM") {
       const ownBeamLevel = Math.min(beamDepth + 1, 2);
@@ -359,7 +360,7 @@ function PlaygroundAlignedToken({
         <span
           className={`inline-flex h-6 min-w-4 items-center justify-center text-sm font-semibold leading-none whitespace-nowrap ${lyricTone}`}
         >
-          {lyric ?? ""}
+          {resolvedLyric ?? ""}
         </span>
       </div>
     );

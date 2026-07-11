@@ -1,10 +1,25 @@
-import { withAuth } from "next-auth/middleware"
+import { withAuth } from "next-auth/middleware";
+import { NextResponse } from "next/server";
 
-export default withAuth({
-  pages: {
-    signIn: "/login",
+export default withAuth(
+  function middleware(req) {
+    const role = req.nextauth.token?.role as string;
+    const path = req.nextUrl.pathname;
+
+    if (role === "PADUS") {
+      if (!path.startsWith("/practice")) {
+        return NextResponse.redirect(new URL("/practice", req.url));
+      }
+    }
+
+    return NextResponse.next();
   },
-})
+  {
+    pages: {
+      signIn: "/login",
+    },
+  }
+);
 
 export const config = {
   matcher: [
@@ -19,4 +34,4 @@ export const config = {
      */
     "/((?!api|backend-api|_next/static|_next/image|favicon.ico|login|.*\\.png$).*)",
   ],
-}
+};

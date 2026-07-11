@@ -107,6 +107,23 @@ func ReadOnlyForMultimedia() gin.HandlerFunc {
 			return
 		}
 
+		// Padus: read-only access to songs/songbooks/arrangements only
+		if role == user.RolePadus {
+			if method == http.MethodGet || method == http.MethodHead || method == http.MethodOptions {
+				path := c.Request.URL.Path
+				if strings.Contains(path, "exports") || strings.Contains(path, "source-images") {
+					c.JSON(http.StatusForbidden, api.Failed(http.StatusForbidden, "Forbidden: padus users cannot access exports or images"))
+					c.Abort()
+					return
+				}
+				c.Next()
+				return
+			}
+			c.JSON(http.StatusForbidden, api.Failed(http.StatusForbidden, "Forbidden: padus users can only read data"))
+			c.Abort()
+			return
+		}
+
 		c.JSON(http.StatusForbidden, api.Failed(http.StatusForbidden, "Forbidden"))
 		c.Abort()
 	}
