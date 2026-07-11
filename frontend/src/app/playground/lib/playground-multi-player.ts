@@ -133,91 +133,87 @@ export class MultiVoicePlayer {
     this.notifyState(enabledVoiceIds);
 
     const ctx = getAudioContext();
-    if (ctx.state === "suspended") {
-      ctx.resume();
-    }
+    const startPlay = () => {
+      if (!this.isPlaying) return; // In case stopped while resuming
+      const now = ctx.currentTime;
+      this.startTimeRef = now + this.startDelay;
+      this.currentVoicesRef = voiceAudioDataList;
 
-    const now = ctx.currentTime;
-    this.startTimeRef = now + this.startDelay;
-    this.currentVoicesRef = voiceAudioDataList;
+      const activeVoiceCount = voiceAudioDataList.length;
+      const baseVolume = activeVoiceCount > 1 ? 0.3 / Math.sqrt(activeVoiceCount) : 0.5;
 
-    const activeVoiceCount = voiceAudioDataList.length;
-    const baseVolume = activeVoiceCount > 1 ? 0.3 / Math.sqrt(activeVoiceCount) : 0.5;
+      // Create per-voice GainNodes and schedule notes
+      this.voiceGainNodes.clear();
+      for (const voiceData of voiceAudioDataList) {
+        const voiceGain = ctx.createGain();
+        const userVolume = this.voiceVolumes.get(voiceData.voiceId) ?? 1.0;
+        const isMuted = this.voiceMuted.get(voiceData.voiceId) ?? false;
+        voiceGain.gain.value = isMuted ? 0 : userVolume;
+        voiceGain.connect(ctx.destination);
+        this.voiceGainNodes.set(voiceData.voiceId, voiceGain);
 
-    // Create per-voice GainNodes and schedule notes
-    this.voiceGainNodes.clear();
-    for (const voiceData of voiceAudioDataList) {
-      const voiceGain = ctx.createGain();
-      const userVolume = this.voiceVolumes.get(voiceData.voiceId) ?? 1.0;
-      const isMuted = this.voiceMuted.get(voiceData.voiceId) ?? false;
-      voiceGain.gain.value = isMuted ? 0 : userVolume;
-      voiceGain.connect(ctx.destination);
-      this.voiceGainNodes.set(voiceData.voiceId, voiceGain);
+        for (const event of voiceData.events) {
+          const eventEnd = event.startTimeSeconds + event.durationSeconds;
 
-      for (const event of voiceData.events) {
-        const eventEnd = event.startTimeSeconds + event.durationSeconds;
+          // Skip events that ended before seek position
+          if (eventEnd <= fromPositionSeconds) continue;
 
-        // Skip events that ended before seek position
-        if (eventEnd <= fromPositionSeconds) continue;
+          let schedStart = event.startTimeSeconds - fromPositionSeconds;
+          let schedDuration = event.durationSeconds;
 
-        let schedStart = event.startTimeSeconds - fromPositionSeconds;
-        let schedDuration = event.durationSeconds;
+          // Handle events that overlap the seek point
+          if (schedStart < 0) {
+            schedDuration += schedStart;
+            schedStart = 0;
+          }
 
-        // Handle events that overlap the seek point
-        if (schedStart < 0) {
-          schedDuration += schedStart;
-          schedStart = 0;
+          if (schedDuration <= 0) continue;
+
+          playTone(
+            ctx,
+            event.frequency,
+            this.startTimeRef + schedStart,
+            schedDuration,
+            event.isSlur,
+            voiceData.waveform,
+            baseVolume,
+            voiceGain
+          );
+        }
+      }
+
+      // Determine effective end for loop or full stop
+      const effectiveEnd = this.loopEnd !== null ? Math.min(this.loopEnd, maxDuration) : maxDuration;
+      const timeUntilEnd = effectiveEnd - fromPositionSeconds;
+
+      this.playbackTimeout = window.setTimeout(() => {
+        if (this.loopStart !== null && this.loopEnd !== null) {
+          this.seekTo(this.loopStart);
+          return;
+        }
+        this.stop();
+      }, (this.startDelay + Math.max(0, timeUntilEnd)) * 1000);
+
+      // Highlighting + position tracking loop
+      const checkTime = () => {
+        if (!this.isPlaying) return;
+
+        const currentCtx = getAudioContext();
+        const localElapsed = currentCtx.currentTime - this.startTimeRef;
+        const timeElapsed = localElapsed + this.seekOffset;
+
+        // Report position
+        this.onPositionChange?.(timeElapsed, this.maxTotalDuration);
+
+        // Check loop boundary
+        if (this.loopEnd !== null && timeElapsed >= this.loopEnd) {
+          this.seekTo(this.loopStart ?? 0);
+          return;
         }
 
-        if (schedDuration <= 0) continue;
-
-        playTone(
-          ctx,
-          event.frequency,
-          this.startTimeRef + schedStart,
-          schedDuration,
-          event.isSlur,
-          voiceData.waveform,
-          baseVolume,
-          voiceGain
-        );
-      }
-    }
-
-
-
-    // Determine effective end for loop or full stop
-    const effectiveEnd = this.loopEnd !== null ? Math.min(this.loopEnd, maxDuration) : maxDuration;
-    const timeUntilEnd = effectiveEnd - fromPositionSeconds;
-
-    this.playbackTimeout = window.setTimeout(() => {
-      if (this.loopStart !== null && this.loopEnd !== null) {
-        this.seekTo(this.loopStart);
-        return;
-      }
-      this.stop();
-    }, (this.startDelay + Math.max(0, timeUntilEnd)) * 1000);
-
-    // Highlighting + position tracking loop
-    const checkTime = () => {
-      if (!this.isPlaying) return;
-
-      const currentCtx = getAudioContext();
-      const localElapsed = currentCtx.currentTime - this.startTimeRef;
-      const timeElapsed = localElapsed + this.seekOffset;
-
-      // Report position
-      this.onPositionChange?.(timeElapsed, this.maxTotalDuration);
-
-      // Check loop boundary
-      if (this.loopEnd !== null && timeElapsed >= this.loopEnd) {
-        this.seekTo(this.loopStart ?? 0);
-        return;
-      }
-
-      if (localElapsed >= 0) {
-        for (const voiceData of this.currentVoicesRef) {
-          let currentActiveIndex: number | null = null;
+        if (localElapsed >= 0) {
+          for (const voiceData of this.currentVoicesRef) {
+            let currentActiveIndex: number | null = null;
 
           const activeEvent = voiceData.events.find(
             e => timeElapsed >= e.startTimeSeconds && timeElapsed < (e.startTimeSeconds + e.durationSeconds)
@@ -244,7 +240,14 @@ export class MultiVoicePlayer {
     };
 
     this.animationFrame = requestAnimationFrame(checkTime);
+  };
+
+  if (ctx.state === "suspended") {
+    ctx.resume().then(startPlay);
+  } else {
+    startPlay();
   }
+}
 
   // --- Pre-compute events (for click-to-seek before first play) ---
 
