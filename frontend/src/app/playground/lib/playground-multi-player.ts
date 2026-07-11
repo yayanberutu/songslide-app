@@ -133,7 +133,9 @@ export class MultiVoicePlayer {
     this.notifyState(enabledVoiceIds);
 
     const ctx = getAudioContext();
+    console.log("[MultiVoicePlayer] play: ctx.state =", ctx.state);
     const startPlay = () => {
+      console.log("[MultiVoicePlayer] startPlay: ctx.state =", ctx.state, "currentTime =", ctx.currentTime);
       if (!this.isPlaying) return; // In case stopped while resuming
       const now = ctx.currentTime;
       this.startTimeRef = now + this.startDelay;
