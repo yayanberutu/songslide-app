@@ -57,7 +57,7 @@ func (h *Handler) CreateUser(c *gin.Context) {
 	}
 
 	role := Role(req.Role)
-	if role != RoleAdmin && role != RoleMultimedia {
+	if role != RoleAdmin && role != RoleMultimedia && role != RolePadus {
 		c.JSON(http.StatusBadRequest, api.Failed(http.StatusBadRequest, "Invalid role"))
 		return
 	}
@@ -107,7 +107,7 @@ func (h *Handler) UpdateRole(c *gin.Context) {
 	}
 
 	role := Role(req.Role)
-	if role != RoleAdmin && role != RoleMultimedia {
+	if role != RoleAdmin && role != RoleMultimedia && role != RolePadus {
 		c.JSON(http.StatusBadRequest, api.Failed(http.StatusBadRequest, "Invalid role"))
 		return
 	}

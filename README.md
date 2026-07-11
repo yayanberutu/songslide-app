@@ -10,9 +10,11 @@ In scope for the MVP:
 
 - Manage song books and song metadata.
 - Upload notation source images for manual reference.
-- Enter `VERSE`, `REFRAIN`, and `TEXT_ONLY_VERSES` content through the editor.
+- Support for multiple song types: `LEAD_SHEET` (default) and `PARTITUR` (multi-voice / SATB).
+- Enter `VERSE`, `REFRAIN`, `TEXT_ONLY_VERSES`, and `PARTITUR` content through the editor.
 - Preview selected verses with refrain placement options.
 - Export selected preview content to PPTX or PNG ZIP.
+- Jianpu Playground to experiment with multi-voice audio playback.
 - Run locally with native tooling or Docker Compose.
 
 Out of scope for the MVP:
@@ -228,12 +230,13 @@ OCR_ENABLED=false uvicorn app.main:app --host 0.0.0.0 --port 8001
 1. Start services with Docker Compose or native commands.
 2. Open the frontend at `http://localhost:3000`.
 3. Open Song Books and create a song book such as `BE`, `KJ`, `PKJ`, `BNH`, or `NKB`.
-4. Open Songs and create a song with book code, song number, title, and optional music metadata.
+4. Open Songs and create a song with book code, song number, title, and optional music metadata. You can specify the song type as `LEAD_SHEET` (single melody) or `PARTITUR` (multi-voice / SATB).
 5. Open the song editor and upload a PNG or JPEG notation source image.
-6. Add and enter `VERSE`, `REFRAIN`, and `TEXT_ONLY_VERSES` sections. This saves into `song_arrangements.content_json`.
+6. Add and enter sections (`VERSE`, `REFRAIN`, `TEXT_ONLY_VERSES`, or `PARTITUR` depending on the song type). The editor provides a custom visual interface for managing multiple voices. This saves into `song_arrangements.content_json`.
 7. Save the arrangement, open Preview, select verses, and choose the refrain mode.
 8. Choose `PPTX` in the preview export panel, export, and download the PowerPoint file.
 9. Choose `PNG ZIP`, export again, and download the ZIP archive of PNG slides.
+10. Navigate to the `Jianpu Playground` to test multi-voice audio playback for the notations you entered.
 
 ## Troubleshooting
 

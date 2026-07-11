@@ -4,6 +4,7 @@ type NotationTokenProps = {
   token: NotationTokenValue;
   theme?: "LIGHT" | "DARK";
   beamDepth?: number;
+  activeNoteIndex?: number | null;
 };
 
 const notationArea = "relative inline-flex h-11 items-center justify-center";
@@ -11,11 +12,20 @@ const notationArea = "relative inline-flex h-11 items-center justify-center";
 export function NotationToken({
   token,
   theme = "LIGHT",
-  beamDepth = 0
+  beamDepth = 0,
+  activeNoteIndex = null
 }: NotationTokenProps) {
   const isDark = theme === "DARK";
-  const noteTone = isDark ? "text-cyan-100" : "text-ink-950";
-  const mutedTone = isDark ? "text-zinc-300" : "text-ink-500";
+  
+  const isHighlighted = token.globalNoteIndex !== undefined && token.globalNoteIndex === activeNoteIndex;
+  const activeColor = "text-emerald-500";
+  
+  const baseNoteTone = isDark ? "text-cyan-100" : "text-ink-950";
+  const noteTone = isHighlighted ? `${activeColor} font-bold scale-110 transition-transform z-10` : baseNoteTone;
+  
+  const baseMutedTone = isDark ? "text-zinc-300" : "text-ink-500";
+  const mutedTone = isHighlighted ? `${activeColor} font-bold scale-110 transition-transform z-10` : baseMutedTone;
+  
   const beamTone = isDark ? "bg-cyan-100/85" : "bg-ink-950/80";
   const slurTone = isDark ? "border-cyan-100/70" : "border-ink-950/60";
   const barTone = isDark ? "bg-zinc-300/80" : "bg-ink-500/80";
@@ -42,11 +52,14 @@ export function NotationToken({
   }
 
   if (token.type === "EXTENSION") {
+    const isExtHighlighted = token.globalNoteIndex !== undefined && token.globalNoteIndex === activeNoteIndex;
+    const extTone = isExtHighlighted ? "bg-emerald-500 scale-125 transition-transform" : isDark ? "bg-zinc-100" : "bg-ink-700";
+
     return (
       <span className={`${notationArea} w-3`}>
         <span
           aria-hidden="true"
-          className={`absolute top-[1.45rem] left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full ${isDark ? "bg-zinc-100" : "bg-ink-700"}`}
+          className={`absolute top-[1.45rem] left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full ${extTone}`}
         />
       </span>
     );
@@ -57,7 +70,7 @@ export function NotationToken({
       <span className={`${notationArea} w-fit px-px`}>
         <span className="inline-flex h-full items-center gap-1">
           {token.children.map((child, index) => (
-            <NotationToken key={`${token.raw}-${index}`} token={child} theme={theme} beamDepth={beamDepth} />
+            <NotationToken key={`${token.raw}-${index}`} token={child} theme={theme} beamDepth={beamDepth} activeNoteIndex={activeNoteIndex} />
           ))}
         </span>
         <span
@@ -80,7 +93,7 @@ export function NotationToken({
         />
         <span className="inline-flex h-full items-center gap-1">
           {token.children.map((child, index) => (
-            <NotationToken key={`${token.raw}-${index}`} token={child} theme={theme} beamDepth={ownBeamLevel} />
+            <NotationToken key={`${token.raw}-${index}`} token={child} theme={theme} beamDepth={ownBeamLevel} activeNoteIndex={activeNoteIndex} />
           ))}
         </span>
       </span>

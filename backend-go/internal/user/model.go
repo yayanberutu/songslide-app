@@ -13,6 +13,7 @@ type Role string
 const (
 	RoleAdmin      Role = "ADMIN"
 	RoleMultimedia Role = "MULTIMEDIA"
+	RolePadus      Role = "PADUS"
 )
 
 type User struct {

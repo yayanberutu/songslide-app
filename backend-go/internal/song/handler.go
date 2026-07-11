@@ -61,6 +61,11 @@ func (h *Handler) Create(c *gin.Context) {
 		return
 	}
 
+	songType := req.Type
+	if songType == "" {
+		songType = "LEAD_SHEET"
+	}
+
 	song := Song{
 		SongBookID:    book.ID,
 		SongNumber:    req.SongNumber,
@@ -68,6 +73,7 @@ func (h *Handler) Create(c *gin.Context) {
 		KeySignature:  ptrStr(req.DefaultKey),
 		TimeSignature: ptrStr(req.TimeSignature),
 		TempoBpm:             req.Tempo,
+		Type:                 songType,
 		Author:               ptrStr(req.AuthorText),
 		Notes:                ptrStr(req.SourceNote),
 		NotationSourceSongID: req.NotationSourceSongID,
@@ -204,6 +210,9 @@ func (h *Handler) Update(c *gin.Context) {
 		s.SongBookID = book.ID
 	}
 
+	if req.Type != "" {
+		s.Type = req.Type
+	}
 	s.SongNumber = req.SongNumber
 	s.Title = req.Title
 	s.KeySignature = ptrStr(req.DefaultKey)
