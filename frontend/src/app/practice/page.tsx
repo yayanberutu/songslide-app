@@ -359,11 +359,10 @@ export default function PracticePage() {
   };
 
   // --- Line click → seek ---
-  const handleLineClick = (lineIndex: number) => {
+  const handleLineClick = async (lineIndex: number) => {
     if (!playerRef.current) return;
     setActiveLineIndex(lineIndex);
 
-    // Find the globalNoteIndex of the first note in this line for any voice
     const firstVoiceId = voices[0]?.id;
     if (!firstVoiceId) return;
     const lines = parsedLinesPerVoice[firstVoiceId];
@@ -385,7 +384,7 @@ export default function PracticePage() {
     playerRef.current.ensureEventsReady(voices, parsedLinesPerVoice, tempo, songKey, enabledVoices);
     const time = playerRef.current.getTimeForNoteIndex(noteIndex);
     if (time !== null) {
-      playerRef.current.seekTo(time);
+      await playerRef.current.seekTo(time);
     }
   };
 
@@ -393,6 +392,26 @@ export default function PracticePage() {
     () => viewMode === "all" ? new Set(voices.map(v => v.id)) : new Set([viewMode]),
     [viewMode, voices]
   );
+
+  useEffect(() => {
+    if (!playerRef.current || voices.length === 0) return;
+    if (viewMode === "all") {
+      voices.forEach(v => {
+        playerRef.current?.muteVoice(v.id, false);
+      });
+      setMutedVoices(new Set());
+      setSoloVoice(null);
+    } else {
+      const newMuted = new Set<string>();
+      voices.forEach(v => {
+        const shouldMute = v.id !== viewMode;
+        playerRef.current?.muteVoice(v.id, shouldMute);
+        if (shouldMute) newMuted.add(v.id);
+      });
+      setMutedVoices(newMuted);
+      setSoloVoice(viewMode);
+    }
+  }, [viewMode, voices]);
 
   const hasSong = voices.length > 0;
 
