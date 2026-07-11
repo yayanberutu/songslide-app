@@ -256,7 +256,10 @@ export class MultiVoicePlayer {
     songKey: string,
     enabledVoiceIds: Set<string>
   ) {
-    if (this.currentVoicesRef.length > 0) return;
+    const cacheValid = this.currentVoicesRef.length > 0
+      && this.cachedTempo === tempo
+      && this.cachedSongKey === songKey;
+    if (cacheValid) return;
 
     this.cachedVoices = voices;
     this.cachedParsedLines = parsedLinesPerVoice;
@@ -285,11 +288,11 @@ export class MultiVoicePlayer {
 
   // --- Seek ---
 
-  seekTo(positionSeconds: number) {
+  async seekTo(positionSeconds: number) {
     if (this.cachedVoices.length === 0) return;
     const pos = Math.max(0, Math.min(positionSeconds, this.maxTotalDuration));
     this.stop();
-    this.play(
+    await this.play(
       this.cachedVoices,
       this.cachedParsedLines,
       this.cachedTempo,
