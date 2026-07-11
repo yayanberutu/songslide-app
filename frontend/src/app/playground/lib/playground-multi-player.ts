@@ -242,14 +242,14 @@ export class MultiVoicePlayer {
     };
 
     this.animationFrame = requestAnimationFrame(checkTime);
-  };
+    };
 
-  if (ctx.state === "suspended") {
-    ctx.resume().then(startPlay);
-  } else {
-    startPlay();
+    if (ctx.state === "suspended") {
+      ctx.resume().then(startPlay);
+    } else {
+      startPlay();
+    }
   }
-}
 
   // --- Pre-compute events (for click-to-seek before first play) ---
 
