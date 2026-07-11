@@ -59,7 +59,7 @@ export function PracticePlayer({
     if (isPlaying) {
       playerRef.current?.stop();
     }
-  }, [enabledVoices, playerRef]);
+  }, [enabledVoices, playerRef, isPlaying]);
 
   const handlePlay = () => {
     if (!playerRef.current) return;

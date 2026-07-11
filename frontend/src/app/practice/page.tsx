@@ -164,7 +164,6 @@ export default function PracticePage() {
 
       const content = arrangement.contentJson as ArrangementContentJson;
 
-      let isPartitur = false;
       const newNotations: Record<string, string[]> = {};
       const defaultVoiceId = DEFAULT_VOICES[0].id;
 
@@ -215,7 +214,6 @@ export default function PracticePage() {
           for (const line of section.lines) {
             const vLine = line as VerseLine;
             if (vLine.notationsByVoice && Object.keys(vLine.notationsByVoice).length > 0) {
-              isPartitur = true;
               for (const [vId, notation] of Object.entries(vLine.notationsByVoice)) {
                 if (!newNotations[vId]) newNotations[vId] = [];
                 newNotations[vId].push(notation);
@@ -238,7 +236,6 @@ export default function PracticePage() {
           for (const line of section.lines) {
             const rLine = line as RefrainLine;
             if (rLine.notationsByVoice && Object.keys(rLine.notationsByVoice).length > 0) {
-              isPartitur = true;
               for (const [vId, notation] of Object.entries(rLine.notationsByVoice)) {
                 if (!newNotations[vId]) newNotations[vId] = [];
                 newNotations[vId].push(notation);
@@ -257,7 +254,6 @@ export default function PracticePage() {
             }
           }
         } else if (section.type === "PARTITUR") {
-          isPartitur = true;
           for (const line of section.lines) {
             const pLine = line as PartiturLine;
             if (pLine.voices && Object.keys(pLine.voices).length > 0) {

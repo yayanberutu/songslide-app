@@ -184,7 +184,7 @@ export class MultiVoicePlayer {
       }
     }
 
-    const remainingDuration = maxDuration - fromPositionSeconds;
+
 
     // Determine effective end for loop or full stop
     const effectiveEnd = this.loopEnd !== null ? Math.min(this.loopEnd, maxDuration) : maxDuration;
