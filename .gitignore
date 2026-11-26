@@ -22,6 +22,7 @@ dist/
 build/
 out/
 .next/
+.tmp-tests/
 target/
 *.tsbuildinfo
 
