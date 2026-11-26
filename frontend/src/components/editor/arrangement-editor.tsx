@@ -17,8 +17,10 @@ import {
   type VerseSection
 } from "@/lib/arrangement-api";
 import { getSong, type Song } from "@/lib/song-api";
+import { AlignedNotationLine } from "@/components/notation/AlignedNotationLine";
 import { AlignmentStatus } from "@/components/notation/AlignmentStatus";
 import { NotationInput } from "@/components/notation/NotationInput";
+import { NotationLine } from "@/components/notation/NotationLine";
 import { SourceImageReference } from "@/components/source-images/source-image-reference";
 import { Button, EmptyState, Field, InlineError, LoadingState, TextArea, TextInput } from "@/components/ui";
 import { PartiturSectionEditor } from "./partitur-section-editor";
@@ -351,6 +353,11 @@ const VerseLineItem = memo(function VerseLineItem({
             isNotationReadOnly={isNotationReadOnly}
           />
         </Field>
+        {line.notation?.trim() ? (
+          <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2">
+            <NotationLine notation={line.notation} />
+          </div>
+        ) : null}
         <div className="grid gap-3 md:grid-cols-2">
           {verseNumbers.map((verseNumber) => (
             <div key={verseNumber} className="space-y-2">
@@ -556,8 +563,8 @@ const RefrainLineItem = memo(function RefrainLineItem({
   );
 
   return (
-    <div key={`${sectionId}-line-${index}`} className="rounded-md border border-zinc-200 p-3">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+    <div key={`${sectionId}-line-${index}`} className="rounded-md border border-zinc-200 p-3 space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-semibold text-ink-950">Line {index + 1}</p>
         <LineActions
           index={index}
@@ -583,6 +590,11 @@ const RefrainLineItem = memo(function RefrainLineItem({
           />
         </Field>
       </div>
+      {line.notation?.trim() || line.lyric?.trim() ? (
+        <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2">
+          <AlignedNotationLine notation={line.notation} lyric={line.lyric} />
+        </div>
+      ) : null}
       <AlignmentStatus notation={line.notation} lyric={line.lyric} />
     </div>
   );
