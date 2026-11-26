@@ -7,17 +7,11 @@ import {
   createDefaultArrangement,
   getDefaultArrangement,
   type ArrangementContentJson,
-  type RefrainLine,
-  type RefrainSection,
   type SongArrangement,
-  type TextOnlyVersesSection,
-  type VerseLine,
-  type VerseSection,
   type PartiturSection
 } from "@/lib/arrangement-api";
 import {
   collectAvailableVerses,
-  sectionHasVerse,
   sectionsOfType
 } from "@/lib/arrangement-helpers";
 import {
@@ -30,13 +24,16 @@ import {
   type SongExportResponse
 } from "@/lib/export-api";
 import { getSong, type Song } from "@/lib/song-api";
-import { AlignedNotationLine } from "@/components/notation/AlignedNotationLine";
-import { NotationLine } from "@/components/notation/NotationLine";
+import {
+  buildPreviewSlides,
+  slideMetadata,
+  slideTitle
+} from "@/lib/arrangement-preview-builder";
 import { NotationPlayer } from "@/components/NotationPlayer";
 import { Button, EmptyState, Field, InlineError, LoadingState, SelectInput, TextInput } from "@/components/ui";
 import { useSession } from "next-auth/react";
-import { parseNotationLine, type NotationToken as NotationTokenValue } from "@/lib/notation-parser";
 import { PartiturPreviewSection } from "./PartiturPreviewSection";
+import { PreviewSlideCard } from "./PreviewSlideCard";
 
 type ArrangementPreviewProps = {
   songId: string;
@@ -45,21 +42,6 @@ type ArrangementPreviewProps = {
 type RefrainMode = ExportRefrainMode;
 type PreviewTheme = ExportTheme;
 type TextSizePreset = ExportTextSizePreset;
-
-type PreviewLine = {
-  notation: string | null;
-  lyric: string | null;
-  startNoteIndex: number;
-  tokens: NotationTokenValue[];
-};
-
-type PreviewSlide = {
-  key: string;
-  title: string;
-  subtitle: string;
-  metadata: string | null;
-  lines: PreviewLine[];
-};
 
 const refrainModes: Array<{ value: RefrainMode; label: string }> = [
   { value: "NONE", label: "None" },
@@ -438,249 +420,11 @@ async function loadOrCreateDefaultArrangement(songId: string) {
   }
 }
 
-function PreviewSlideCard({
-  slide,
-  slideNumber,
-  totalSlides,
-  theme,
-  showNotation,
-  activeNoteIndex
-}: {
-  slide: PreviewSlide;
-  slideNumber: number;
-  totalSlides: number;
-  theme: PreviewTheme;
-  showNotation: boolean;
-  activeNoteIndex: number | null;
-}) {
-  const isDark = theme === "DARK";
-  const visibleLines = slide.lines.filter((line) => (showNotation && hasText(line.notation)) || hasText(line.lyric));
-
-  return (
-    <article
-      className={[
-        "aspect-video min-h-[320px] overflow-hidden rounded-md border p-5 shadow-sm",
-        isDark ? "border-zinc-700 bg-zinc-950 text-white" : "border-zinc-200 bg-white text-ink-950"
-      ].join(" ")}
-    >
-      <div className="flex items-start justify-between gap-4 border-b border-current/15 pb-3">
-        <div className="min-w-0">
-          <p className={["truncate text-sm font-semibold", isDark ? "text-zinc-100" : "text-ink-950"].join(" ")}>
-            {slide.title}
-          </p>
-          <h2 className="mt-1 text-xl font-semibold tracking-normal">{slide.subtitle}</h2>
-          {slide.metadata ? (
-            <p className={["mt-1 text-sm", isDark ? "text-zinc-300" : "text-ink-500"].join(" ")}>
-              {slide.metadata}
-            </p>
-          ) : null}
-        </div>
-        <p className={["shrink-0 text-xs font-medium", isDark ? "text-zinc-400" : "text-ink-500"].join(" ")}>
-          {slideNumber}/{totalSlides}
-        </p>
-      </div>
-
-      <div className="mt-5 max-h-[calc(100%-5.5rem)] space-y-4 overflow-y-auto pr-2">
-        {visibleLines.length === 0 ? (
-          <p className={["text-sm", isDark ? "text-zinc-400" : "text-ink-500"].join(" ")}>No visible lines.</p>
-        ) : (
-          visibleLines.map((line, index) => (
-            <div key={`${slide.key}-line-${index}`} className="space-y-1">
-              {showNotation && hasText(line.notation) && hasText(line.lyric) ? (
-                <AlignedNotationLine notation={line.notation} lyric={line.lyric} theme={theme} activeNoteIndex={activeNoteIndex} startNoteIndex={line.startNoteIndex} />
-              ) : null}
-              {showNotation && hasText(line.notation) && !hasText(line.lyric) ? (
-                <NotationLine notation={line.notation} theme={theme} activeNoteIndex={activeNoteIndex} startNoteIndex={line.startNoteIndex} />
-              ) : null}
-              {(!showNotation || !hasText(line.notation)) && hasText(line.lyric) ? (
-                <p className={["whitespace-pre-wrap break-words text-lg leading-7 [overflow-wrap:anywhere]", isDark ? "text-zinc-50" : "text-ink-800"].join(" ")}>
-                  {line.lyric}
-                </p>
-              ) : null}
-            </div>
-          ))
-        )}
-      </div>
-    </article>
-  );
-}
-
 function normalizeContent(contentJson: ArrangementContentJson): ArrangementContentJson {
   return {
     structureVersion: "1.0",
     sections: contentJson.sections ?? []
   };
-}
-
-function buildPreviewSlides(
-  song: Song,
-  content: ArrangementContentJson,
-  selectedVerses: string[],
-  refrainMode: RefrainMode
-) {
-  const slides: PreviewSlide[] = [];
-  const title = slideTitle(song);
-  const metadata = slideMetadata(song);
-
-  let globalNoteIndex = 0;
-
-  const buildContext = {
-    get nextStartNoteIndex() { return globalNoteIndex; },
-    advanceGlobalNoteIndex(tokens: NotationTokenValue[]) {
-      const countNotes = (tks: NotationTokenValue[]) => {
-        for (const token of tks) {
-          if (token.type === "NOTE" || token.type === "REST" || token.type === "EXTENSION") {
-            globalNoteIndex++;
-          } else if (token.type === "SLUR" || token.type === "BEAM") {
-            countNotes(token.children);
-          }
-        }
-      };
-      countNotes(tokens);
-    }
-  };
-
-  selectedVerses.forEach((verseNumber) => {
-    appendVerseSlides(slides, content, verseNumber, title, metadata, buildContext);
-    appendTextOnlyVerseSlides(slides, content, verseNumber, title, metadata, buildContext);
-
-    if (refrainMode === "AFTER_EACH_VERSE") {
-      appendRefrainSlides(slides, content, title, metadata, buildContext);
-    }
-  });
-
-  if (refrainMode === "ONCE_AFTER_ALL_VERSES") {
-    appendRefrainSlides(slides, content, title, metadata, buildContext);
-  }
-
-  return slides;
-}
-
-function appendVerseSlides(
-  slides: PreviewSlide[],
-  content: ArrangementContentJson,
-  verseNumber: string,
-  title: string,
-  metadata: string | null,
-  buildContext: { nextStartNoteIndex: number; advanceGlobalNoteIndex: (tokens: NotationTokenValue[]) => void }
-) {
-  sectionsOfType<VerseSection>(content, "VERSE").forEach((section, sectionIndex) => {
-    if (!sectionHasVerse(section, verseNumber)) {
-      return;
-    }
-
-    const lines = sortedLines(section.lines).reduce<PreviewLine[]>((currentLines, line) => {
-      return addPreviewLine(currentLines, line.notation, line.lyricsByVerse?.[verseNumber], buildContext);
-    }, []);
-
-    if (lines.length > 0) {
-      slides.push({
-        key: `${section.id}-${verseNumber}-${sectionIndex}`,
-        title,
-        subtitle: `${section.label || "Ayat"} ${verseNumber}`,
-        metadata,
-        lines
-      });
-    }
-  });
-}
-
-function appendTextOnlyVerseSlides(
-  slides: PreviewSlide[],
-  content: ArrangementContentJson,
-  verseNumber: string,
-  title: string,
-  metadata: string | null,
-  buildContext: { nextStartNoteIndex: number; advanceGlobalNoteIndex: (tokens: NotationTokenValue[]) => void }
-) {
-  sectionsOfType<TextOnlyVersesSection>(content, "TEXT_ONLY_VERSES").forEach((section, sectionIndex) => {
-    const lyric = section.verses?.[verseNumber];
-    if (!hasText(lyric)) {
-      return;
-    }
-
-    const lines = lyric.split(/\r?\n/).reduce<PreviewLine[]>((currentLines, line) => {
-      return addPreviewLine(currentLines, null, line, buildContext);
-    }, []);
-
-    if (lines.length > 0) {
-      slides.push({
-        key: `${section.id}-${verseNumber}-${sectionIndex}`,
-        title,
-        subtitle: `${section.label || "Ayat Tambahan"} ${verseNumber}`,
-        metadata,
-        lines
-      });
-    }
-  });
-}
-
-function appendRefrainSlides(
-  slides: PreviewSlide[],
-  content: ArrangementContentJson,
-  title: string,
-  metadata: string | null,
-  buildContext: { nextStartNoteIndex: number; advanceGlobalNoteIndex: (tokens: NotationTokenValue[]) => void }
-) {
-  sectionsOfType<RefrainSection>(content, "REFRAIN").forEach((section, sectionIndex) => {
-    const lines = sortedLines(section.lines).reduce<PreviewLine[]>((currentLines, line) => {
-      return addPreviewLine(currentLines, line.notation, line.lyric, buildContext);
-    }, []);
-
-    if (lines.length > 0) {
-      slides.push({
-        key: `${section.id}-refrain-${slides.length}-${sectionIndex}`,
-        title,
-        subtitle: section.label || "Refrein",
-        metadata,
-        lines
-      });
-    }
-  });
-}
-
-function addPreviewLine(
-  lines: PreviewLine[],
-  notation: string | null | undefined,
-  lyric: string | null | undefined,
-  buildContext: { nextStartNoteIndex: number; advanceGlobalNoteIndex: (tokens: NotationTokenValue[]) => void }
-) {
-  const cleanNotation = notation?.trim() || null;
-  const cleanLyric = lyric?.trim() || null;
-  if (cleanNotation || cleanLyric) {
-    let tokens: NotationTokenValue[] = [];
-    const startNoteIndex = buildContext.nextStartNoteIndex;
-    
-    if (cleanNotation) {
-      const parsed = parseNotationLine(cleanNotation);
-      tokens = parsed.tokens;
-      buildContext.advanceGlobalNoteIndex(tokens);
-    }
-    
-    return [...lines, { notation: cleanNotation, lyric: cleanLyric, startNoteIndex, tokens }];
-  }
-  return lines;
-}
-
-function sortedLines<T extends VerseLine | RefrainLine>(lines: T[] = []) {
-  return [...lines].sort((left, right) => left.lineOrder - right.lineOrder);
-}
-
-function slideTitle(song: Song) {
-  return `${song.songBook.code} ${song.songNumber} - ${song.title}`;
-}
-
-function slideMetadata(song: Song) {
-  const parts = [
-    hasText(song.defaultKey) ? `Do = ${song.defaultKey}` : null,
-    hasText(song.timeSignature) ? song.timeSignature : null,
-    song.tempo ? `${song.tempo} BPM` : null
-  ].filter(Boolean);
-  return parts.length > 0 ? parts.join(" | ") : null;
-}
-
-function hasText(value: string | null | undefined) {
-  return value !== null && value !== undefined && value.trim().length > 0;
 }
 
 function arraysEqual(left: string[], right: string[]) {

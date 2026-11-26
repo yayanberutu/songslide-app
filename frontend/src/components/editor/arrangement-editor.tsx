@@ -23,6 +23,7 @@ import { NotationInput } from "@/components/notation/NotationInput";
 import { NotationLine } from "@/components/notation/NotationLine";
 import { SourceImageReference } from "@/components/source-images/source-image-reference";
 import { Button, EmptyState, Field, InlineError, LoadingState, TextArea, TextInput } from "@/components/ui";
+import { LiveSongPreviewPanel } from "./live-song-preview-panel";
 import { PartiturSectionEditor } from "./partitur-section-editor";
 
 type ArrangementEditorProps = {
@@ -244,6 +245,7 @@ export function ArrangementEditor({ songId }: ArrangementEditorProps) {
               Changes stay local until Save arrangement is pressed. The full structured content document is sent to the backend.
             </p>
           </div>
+          <LiveSongPreviewPanel song={song} content={content} />
           <SourceImageReference songId={songId} />
         </aside>
       </div>
