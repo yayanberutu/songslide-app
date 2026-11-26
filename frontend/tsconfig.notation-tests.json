@@ -15,6 +15,10 @@
     "src/lib/notation-parser.ts",
     "src/lib/lyric-parser.ts",
     "src/lib/alignment.ts",
-    "src/lib/notation-parser.test.ts"
+    "src/lib/notation-parser.test.ts",
+    "src/lib/notation-input-helpers.ts",
+    "src/lib/notation-input-helpers.test.ts",
+    "src/lib/notation-highlight.ts",
+    "src/lib/notation-highlight.test.ts"
   ]
 }

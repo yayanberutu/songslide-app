@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { memo, useCallback, useRef, useState } from "react";
 import { type ArrangementSection, type PartiturLine, type PartiturSection } from "@/lib/arrangement-api";
 import { AlignmentStatus } from "@/components/notation/AlignmentStatus";
+import { NotationInput } from "@/components/notation/NotationInput";
 import { Button, EmptyState, Field, TextInput } from "@/components/ui";
 
 const ALL_VOICES = [
@@ -9,6 +10,146 @@ const ALL_VOICES = [
   { id: "tenor", label: "Tenor" },
   { id: "bass", label: "Bass" }
 ];
+
+type PartiturVoiceEditorProps = {
+  lineIndex: number;
+  voiceId: string;
+  voiceLabel: string;
+  notation: string;
+  lyric: string;
+  lyricsByVerse: Record<string, string>;
+  verseNumbers: string[];
+  isNotationReadOnly?: boolean;
+  onUpdateNotation: (index: number, voiceId: string, notation: string) => void;
+  onUpdateLyric: (index: number, voiceId: string, verseNumber: string, value: string) => void;
+};
+
+const PartiturVoiceEditor = memo(function PartiturVoiceEditor({
+  lineIndex,
+  voiceId,
+  voiceLabel,
+  notation,
+  lyricsByVerse,
+  verseNumbers,
+  isNotationReadOnly,
+  onUpdateNotation,
+  onUpdateLyric
+}: PartiturVoiceEditorProps) {
+  const handleNotationChange = useCallback(
+    (val: string) => {
+      onUpdateNotation(lineIndex, voiceId, val);
+    },
+    [lineIndex, voiceId, onUpdateNotation]
+  );
+
+  return (
+    <div className="space-y-3 border-l-2 border-indigo-200 pl-3">
+      <p className="text-sm font-bold text-indigo-900">{voiceLabel}</p>
+
+      <div className="space-y-3">
+        <Field label="Not Angka">
+          <NotationInput
+            value={notation}
+            onChange={handleNotationChange}
+            placeholder="5 .6 5 5 6 | 1 .2 1 .6"
+            isNotationReadOnly={isNotationReadOnly}
+          />
+        </Field>
+
+        <div className="grid gap-3 md:grid-cols-2">
+          {verseNumbers.map((verseNumber) => {
+            const verseLyric = lyricsByVerse[verseNumber] ?? "";
+            return (
+              <div key={verseNumber} className="space-y-1">
+                <Field label={`Ayat ${verseNumber} Lirik`}>
+                  <TextInput
+                    value={verseLyric}
+                    onChange={(event) =>
+                      onUpdateLyric(lineIndex, voiceId, verseNumber, event.target.value)
+                    }
+                    placeholder={`Lirik Ayat ${verseNumber} untuk ${voiceLabel}`}
+                  />
+                </Field>
+                <AlignmentStatus notation={notation} lyric={verseLyric} />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+});
+
+type PartiturLineItemProps = {
+  sectionId: string;
+  line: PartiturLine;
+  index: number;
+  totalLines: number;
+  enabledVoices: string[];
+  verseNumbers: string[];
+  isNotationReadOnly?: boolean;
+  onUpdateNotation: (index: number, voiceId: string, notation: string) => void;
+  onUpdateLyric: (index: number, voiceId: string, verseNumber: string, value: string) => void;
+  onMoveLine: (index: number, direction: -1 | 1) => void;
+  onDeleteLine: (index: number) => void;
+};
+
+const PartiturLineItem = memo(function PartiturLineItem({
+  sectionId,
+  line,
+  index,
+  totalLines,
+  enabledVoices,
+  verseNumbers,
+  isNotationReadOnly,
+  onUpdateNotation,
+  onUpdateLyric,
+  onMoveLine,
+  onDeleteLine
+}: PartiturLineItemProps) {
+  return (
+    <div key={`${sectionId}-line-${index}`} className="rounded-md border border-zinc-200 p-3 bg-white">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b pb-2">
+        <p className="text-sm font-semibold text-ink-950">Baris {index + 1}</p>
+        <LineActions
+          index={index}
+          total={totalLines}
+          onMove={(direction) => onMoveLine(index, direction)}
+          onDelete={() => onDeleteLine(index)}
+        />
+      </div>
+      <div className="space-y-6">
+        {enabledVoices.map((voiceId) => {
+          const voiceDef = ALL_VOICES.find((v) => v.id === voiceId);
+          const notation = line.voices[voiceId]?.notation ?? "";
+          const lyric = line.voices[voiceId]?.lyric ?? "";
+
+          // Setup lyricsByVerse and handle legacy lyric migration on the fly
+          const lyricsByVerse = { ...(line.voices[voiceId]?.lyricsByVerse ?? {}) };
+          if (lyric && !lyricsByVerse["1"]) {
+            lyricsByVerse["1"] = lyric;
+          }
+
+          return (
+            <PartiturVoiceEditor
+              key={voiceId}
+              lineIndex={index}
+              voiceId={voiceId}
+              voiceLabel={voiceDef?.label ?? voiceId}
+              notation={notation}
+              lyric={lyric}
+              lyricsByVerse={lyricsByVerse}
+              verseNumbers={verseNumbers}
+              isNotationReadOnly={isNotationReadOnly}
+              onUpdateNotation={onUpdateNotation}
+              onUpdateLyric={onUpdateLyric}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+});
 
 export function PartiturSectionEditor({
   section,
@@ -24,12 +165,89 @@ export function PartiturSectionEditor({
 
   const verseNumbers = collectPartiturVerseNumbers(section);
 
-  function updateLines(lines: PartiturLine[]) {
-    onChange({
-      ...section,
+  const sectionRef = useRef(section);
+  sectionRef.current = section;
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
+  const updateLines = useCallback((lines: PartiturLine[]) => {
+    onChangeRef.current({
+      ...sectionRef.current,
       lines: renumberLines(lines)
     });
-  }
+  }, []);
+
+  const handleUpdateNotation = useCallback((lineIndex: number, voiceId: string, notation: string) => {
+    const cur = sectionRef.current;
+    const curLine = cur.lines[lineIndex];
+    if (!curLine) return;
+    const curVoice = curLine.voices[voiceId] ?? { notation: "", lyric: "" };
+    onChangeRef.current({
+      ...cur,
+      lines: cur.lines.map((l, i) =>
+        i === lineIndex
+          ? {
+              ...l,
+              voices: {
+                ...l.voices,
+                [voiceId]: {
+                  ...curVoice,
+                  notation
+                }
+              }
+            }
+          : l
+      )
+    });
+  }, []);
+
+  const handleUpdateLyric = useCallback(
+    (lineIndex: number, voiceId: string, verseNumber: string, value: string) => {
+      const cur = sectionRef.current;
+      const curLine = cur.lines[lineIndex];
+      if (!curLine) return;
+      const voiceData = curLine.voices[voiceId] ?? { notation: "", lyric: "" };
+      const lyricsByVerse = { ...(voiceData.lyricsByVerse ?? {}) };
+      if (voiceData.lyric && !lyricsByVerse["1"]) {
+        lyricsByVerse["1"] = voiceData.lyric;
+      }
+      const nextLyricsByVerse = {
+        ...lyricsByVerse,
+        [verseNumber]: value
+      };
+      const nextLegacyLyric = verseNumber === "1" ? value : voiceData.lyric;
+
+      onChangeRef.current({
+        ...cur,
+        lines: cur.lines.map((l, i) =>
+          i === lineIndex
+            ? {
+                ...l,
+                voices: {
+                  ...l.voices,
+                  [voiceId]: {
+                    ...voiceData,
+                    lyric: nextLegacyLyric,
+                    lyricsByVerse: nextLyricsByVerse
+                  }
+                }
+              }
+            : l
+        )
+      });
+    },
+    []
+  );
+
+  const handleMoveLine = useCallback((index: number, direction: -1 | 1) => {
+    const cur = sectionRef.current;
+    updateLines(moveItem(cur.lines, index, direction));
+  }, [updateLines]);
+
+  const handleDeleteLine = useCallback((index: number) => {
+    const cur = sectionRef.current;
+    updateLines(cur.lines.filter((_line, lineIndex) => lineIndex !== index));
+  }, [updateLines]);
 
   function toggleVoice(voiceId: string) {
     let nextVoices = [...enabledVoices];
@@ -62,10 +280,6 @@ export function PartiturSectionEditor({
         voices: voicesData
       }
     ]);
-  }
-
-  function updateLine(index: number, line: PartiturLine) {
-    updateLines(section.lines.map((current, lineIndex) => (lineIndex === index ? line : current)));
   }
 
   function addVerseNumber() {
@@ -182,94 +396,20 @@ export function PartiturSectionEditor({
       ) : (
         <div className="space-y-3">
           {section.lines.map((line, index) => (
-            <div key={`${section.id}-line-${index}`} className="rounded-md border border-zinc-200 p-3 bg-white">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b pb-2">
-                <p className="text-sm font-semibold text-ink-950">Baris {index + 1}</p>
-                <LineActions
-                  index={index}
-                  total={section.lines.length}
-                  onMove={(direction) => updateLines(moveItem(section.lines, index, direction))}
-                  onDelete={() => updateLines(section.lines.filter((_line, lineIndex) => lineIndex !== index))}
-                />
-              </div>
-              <div className="space-y-6">
-                {enabledVoices.map((voiceId) => {
-                  const voiceDef = ALL_VOICES.find((v) => v.id === voiceId);
-                  const notation = line.voices[voiceId]?.notation ?? "";
-                  const lyric = line.voices[voiceId]?.lyric ?? "";
-                  
-                  // Setup lyricsByVerse and handle legacy lyric migration on the fly
-                  const lyricsByVerse = { ...(line.voices[voiceId]?.lyricsByVerse ?? {}) };
-                  if (lyric && !lyricsByVerse["1"]) {
-                    lyricsByVerse["1"] = lyric;
-                  }
-
-                  return (
-                    <div key={voiceId} className="space-y-3 border-l-2 border-indigo-200 pl-3">
-                      <p className="text-sm font-bold text-indigo-900">{voiceDef?.label}</p>
-                      
-                      <div className="space-y-3">
-                        <Field label="Not Angka">
-                          <TextInput
-                            value={notation}
-                            onChange={(event) => updateLine(index, {
-                              ...line,
-                              voices: {
-                                ...line.voices,
-                                [voiceId]: {
-                                  notation: event.target.value,
-                                  lyric,
-                                  lyricsByVerse
-                                }
-                              }
-                            })}
-                            placeholder="5 .6 5 5 6 | 1 .2 1 .6"
-                            disabled={isNotationReadOnly}
-                          />
-                        </Field>
-
-                        <div className="grid gap-3 md:grid-cols-2">
-                          {verseNumbers.map((verseNumber) => {
-                            const verseLyric = lyricsByVerse[verseNumber] ?? "";
-                            return (
-                              <div key={verseNumber} className="space-y-1">
-                                <Field label={`Ayat ${verseNumber} Lirik`}>
-                                  <TextInput
-                                    value={verseLyric}
-                                    onChange={(event) => {
-                                      const nextLyricsByVerse = {
-                                        ...lyricsByVerse,
-                                        [verseNumber]: event.target.value
-                                      };
-                                      // Sync legacy field if editing Ayat 1
-                                      const nextLegacyLyric = verseNumber === "1" ? event.target.value : lyric;
-                                      
-                                      updateLine(index, {
-                                        ...line,
-                                        voices: {
-                                          ...line.voices,
-                                          [voiceId]: {
-                                            notation,
-                                            lyric: nextLegacyLyric,
-                                            lyricsByVerse: nextLyricsByVerse
-                                          }
-                                        }
-                                      });
-                                    }}
-                                    placeholder={`Lirik Ayat ${verseNumber} untuk ${voiceDef?.label}`}
-                                  />
-                                </Field>
-                                <AlignmentStatus notation={notation} lyric={verseLyric} />
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            <PartiturLineItem
+              key={`${section.id}-line-${index}`}
+              sectionId={section.id}
+              line={line}
+              index={index}
+              totalLines={section.lines.length}
+              enabledVoices={enabledVoices}
+              verseNumbers={verseNumbers}
+              isNotationReadOnly={isNotationReadOnly}
+              onUpdateLyric={handleUpdateLyric}
+              onUpdateNotation={handleUpdateNotation}
+              onMoveLine={handleMoveLine}
+              onDeleteLine={handleDeleteLine}
+            />
           ))}
         </div>
       )}
