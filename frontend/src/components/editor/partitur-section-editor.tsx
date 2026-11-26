@@ -2,6 +2,7 @@ import { memo, useCallback, useRef, useState } from "react";
 import { type ArrangementSection, type PartiturLine, type PartiturSection } from "@/lib/arrangement-api";
 import { AlignmentStatus } from "@/components/notation/AlignmentStatus";
 import { NotationInput } from "@/components/notation/NotationInput";
+import { NotationLine } from "@/components/notation/NotationLine";
 import { Button, EmptyState, Field, TextInput } from "@/components/ui";
 
 const ALL_VOICES = [
@@ -55,6 +56,12 @@ const PartiturVoiceEditor = memo(function PartiturVoiceEditor({
             isNotationReadOnly={isNotationReadOnly}
           />
         </Field>
+
+        {notation?.trim() ? (
+          <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2">
+            <NotationLine notation={notation} />
+          </div>
+        ) : null}
 
         <div className="grid gap-3 md:grid-cols-2">
           {verseNumbers.map((verseNumber) => {
