@@ -81,7 +81,14 @@ function NotationInputComponent({
 
   const segments = useMemo(() => buildHighlightSegments(value ?? ""), [value]);
   const parsed = useMemo(() => parseNotationLine(value ?? ""), [value]);
-  const issues = parsed.issues;
+  const leadingWs = useMemo(() => {
+    const str = value ?? "";
+    return str.length - str.trimStart().length;
+  }, [value]);
+  const issues = useMemo(
+    () => parsed.issues.map((issue) => ({ ...issue, index: issue.index + leadingWs })),
+    [parsed.issues, leadingWs]
+  );
 
   // Restore cursor position after programmatic changes
   useLayoutEffect(() => {

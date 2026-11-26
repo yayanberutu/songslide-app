@@ -27,14 +27,17 @@ export function buildHighlightSegments(line: string): HighlightSegment[] {
   }
 
   const { tokens, issues } = parseNotationLine(line);
+  const leadingWs = line.length - line.trimStart().length;
 
   const types: HighlightSegmentType[] = new Array(line.length).fill("text");
   const issueMessages: (string | undefined)[] = new Array(line.length).fill(undefined);
 
   function applyToken(token: NotationToken) {
+    const tokenIndex = token.index + leadingWs;
+
     if (token.type === "NOTE") {
-      const end = Math.min(line.length, token.index + token.raw.length);
-      for (let i = token.index; i < end; i++) {
+      const end = Math.min(line.length, tokenIndex + token.raw.length);
+      for (let i = tokenIndex; i < end; i++) {
         types[i] = "note";
       }
       if (token.hasFermata && token.raw.endsWith("^") && end - 1 >= 0) {
@@ -44,8 +47,8 @@ export function buildHighlightSegments(line: string): HighlightSegment[] {
     }
 
     if (token.type === "REST") {
-      const end = Math.min(line.length, token.index + token.raw.length);
-      for (let i = token.index; i < end; i++) {
+      const end = Math.min(line.length, tokenIndex + token.raw.length);
+      for (let i = tokenIndex; i < end; i++) {
         types[i] = "rest";
       }
       if (token.hasFermata && token.raw.endsWith("^") && end - 1 >= 0) {
@@ -55,16 +58,16 @@ export function buildHighlightSegments(line: string): HighlightSegment[] {
     }
 
     if (token.type === "BAR" || token.type === "DOUBLE_BAR") {
-      const end = Math.min(line.length, token.index + token.raw.length);
-      for (let i = token.index; i < end; i++) {
+      const end = Math.min(line.length, tokenIndex + token.raw.length);
+      for (let i = tokenIndex; i < end; i++) {
         types[i] = "bar";
       }
       return;
     }
 
     if (token.type === "EXTENSION") {
-      const end = Math.min(line.length, token.index + token.raw.length);
-      for (let i = token.index; i < end; i++) {
+      const end = Math.min(line.length, tokenIndex + token.raw.length);
+      for (let i = tokenIndex; i < end; i++) {
         types[i] = "extension";
       }
       if (token.hasFermata && token.raw.endsWith("^") && end - 1 >= 0) {
@@ -74,10 +77,10 @@ export function buildHighlightSegments(line: string): HighlightSegment[] {
     }
 
     if (token.type === "BEAM") {
-      if (token.index < line.length) {
-        types[token.index] = "beam";
+      if (tokenIndex < line.length) {
+        types[tokenIndex] = "beam";
       }
-      const closeIndex = token.index + token.raw.length - 1;
+      const closeIndex = tokenIndex + token.raw.length - 1;
       if (closeIndex < line.length && token.raw.endsWith("]")) {
         types[closeIndex] = "beam";
       }
@@ -88,10 +91,10 @@ export function buildHighlightSegments(line: string): HighlightSegment[] {
     }
 
     if (token.type === "SLUR") {
-      if (token.index < line.length) {
-        types[token.index] = "slur";
+      if (tokenIndex < line.length) {
+        types[tokenIndex] = "slur";
       }
-      const closeIndex = token.index + token.raw.length - 1;
+      const closeIndex = tokenIndex + token.raw.length - 1;
       if (closeIndex < line.length && token.raw.endsWith(")")) {
         types[closeIndex] = "slur";
       }
@@ -108,14 +111,15 @@ export function buildHighlightSegments(line: string): HighlightSegment[] {
 
   // Apply issues / invalid tokens
   for (const issue of issues) {
+    const issueIndex = issue.index + leadingWs;
     if (issue.code === "UNCLOSED_BEAM_GROUP" || issue.code === "UNCLOSED_SLUR_GROUP") {
       // Mark just the opening unclosed bracket as invalid
-      if (issue.index >= 0 && issue.index < line.length) {
-        types[issue.index] = "invalid";
-        issueMessages[issue.index] = issue.message;
+      if (issueIndex >= 0 && issueIndex < line.length) {
+        types[issueIndex] = "invalid";
+        issueMessages[issueIndex] = issue.message;
       }
     } else {
-      const start = Math.max(0, issue.index);
+      const start = Math.max(0, issueIndex);
       const len = Math.max(1, issue.raw.length);
       const end = Math.min(line.length, start + len);
       for (let i = start; i < end; i++) {

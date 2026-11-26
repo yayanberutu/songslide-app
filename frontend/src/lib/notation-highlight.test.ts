@@ -75,3 +75,42 @@ test("buildHighlightSegments handles fermata on note, rest, and extension", () =
   const fermatas = segments.filter((s) => s.type === "fermata");
   assert.equal(fermatas.length, 3);
 });
+
+test("buildHighlightSegments correctly aligns tokens with leading whitespace", () => {
+  const line = " 1 2 3";
+  const segments = buildHighlightSegments(line);
+
+  // First segment is leading whitespace (type text)
+  assert.equal(segments[0]?.text, " ");
+  assert.equal(segments[0]?.type, "text");
+
+  // Followed by note 1
+  assert.equal(segments[1]?.text, "1");
+  assert.equal(segments[1]?.type, "note");
+
+  // Followed by space
+  assert.equal(segments[2]?.text, " ");
+  assert.equal(segments[2]?.type, "text");
+
+  // Followed by note 2
+  assert.equal(segments[3]?.text, "2");
+  assert.equal(segments[3]?.type, "note");
+
+  // Multiple leading spaces with group
+  const multiSpaceLine = "   [4 5]";
+  const multiSegments = buildHighlightSegments(multiSpaceLine);
+  assert.equal(multiSegments[0]?.text, "   ");
+  assert.equal(multiSegments[0]?.type, "text");
+  assert.equal(multiSegments[1]?.text, "[");
+  assert.equal(multiSegments[1]?.type, "beam");
+  assert.equal(multiSegments[2]?.text, "4");
+  assert.equal(multiSegments[2]?.type, "note");
+
+  // Leading spaces with invalid token
+  const invalidLine = "  8";
+  const invalidSegments = buildHighlightSegments(invalidLine);
+  assert.equal(invalidSegments[0]?.text, "  ");
+  assert.equal(invalidSegments[0]?.type, "text");
+  assert.equal(invalidSegments[1]?.text, "8");
+  assert.equal(invalidSegments[1]?.type, "invalid");
+});
