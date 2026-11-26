@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ApiError } from "@/lib/api-client";
 import {
   createDefaultArrangement,
@@ -18,6 +18,7 @@ import {
 } from "@/lib/arrangement-api";
 import { getSong, type Song } from "@/lib/song-api";
 import { AlignmentStatus } from "@/components/notation/AlignmentStatus";
+import { NotationInput } from "@/components/notation/NotationInput";
 import { SourceImageReference } from "@/components/source-images/source-image-reference";
 import { Button, EmptyState, Field, InlineError, LoadingState, TextArea, TextInput } from "@/components/ui";
 import { PartiturSectionEditor } from "./partitur-section-editor";
@@ -298,6 +299,88 @@ function SectionEditor({ section, index, totalSections, onChange, onDelete, onMo
   );
 }
 
+type VerseLineItemProps = {
+  sectionId: string;
+  line: VerseLine;
+  index: number;
+  totalLines: number;
+  verseNumbers: string[];
+  isNotationReadOnly?: boolean;
+  onUpdateLine: (index: number, line: VerseLine) => void;
+  onUpdateNotation: (index: number, notation: string) => void;
+  onMoveLine: (index: number, direction: -1 | 1) => void;
+  onDeleteLine: (index: number) => void;
+};
+
+const VerseLineItem = memo(function VerseLineItem({
+  sectionId,
+  line,
+  index,
+  totalLines,
+  verseNumbers,
+  isNotationReadOnly,
+  onUpdateLine,
+  onUpdateNotation,
+  onMoveLine,
+  onDeleteLine
+}: VerseLineItemProps) {
+  const handleNotationChange = useCallback(
+    (notation: string) => {
+      onUpdateNotation(index, notation);
+    },
+    [index, onUpdateNotation]
+  );
+
+  return (
+    <div key={`${sectionId}-line-${index}`} className="rounded-md border border-zinc-200 p-3">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm font-semibold text-ink-950">Line {index + 1}</p>
+        <LineActions
+          index={index}
+          total={totalLines}
+          onMove={(direction) => onMoveLine(index, direction)}
+          onDelete={() => onDeleteLine(index)}
+        />
+      </div>
+      <div className="grid gap-3">
+        <Field label="Numbered notation">
+          <NotationInput
+            value={line.notation ?? ""}
+            onChange={handleNotationChange}
+            placeholder="5 .6 5 5 6 | 1 .2 1 .6"
+            isNotationReadOnly={isNotationReadOnly}
+          />
+        </Field>
+        <div className="grid gap-3 md:grid-cols-2">
+          {verseNumbers.map((verseNumber) => (
+            <div key={verseNumber} className="space-y-2">
+              <Field label={`Verse ${verseNumber} lyric`}>
+                <TextInput
+                  value={line.lyricsByVerse?.[verseNumber] ?? ""}
+                  onChange={(event) =>
+                    onUpdateLine(index, {
+                      ...line,
+                      lyricsByVerse: {
+                        ...(line.lyricsByVerse ?? {}),
+                        [verseNumber]: event.target.value
+                      }
+                    })
+                  }
+                  placeholder={`Lyric for verse ${verseNumber}`}
+                />
+              </Field>
+              <AlignmentStatus
+                notation={line.notation}
+                lyric={line.lyricsByVerse?.[verseNumber] ?? ""}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+});
+
 function VerseSectionEditor({
   section,
   onChange,
@@ -310,12 +393,40 @@ function VerseSectionEditor({
   const verseNumbers = collectVerseNumbers(section);
   const [newVerseNumber, setNewVerseNumber] = useState("");
 
-  function updateLines(lines: VerseLine[]) {
-    onChange({
-      ...section,
+  const sectionRef = useRef(section);
+  sectionRef.current = section;
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
+  const updateLines = useCallback((lines: VerseLine[]) => {
+    onChangeRef.current({
+      ...sectionRef.current,
       lines: renumberLines(lines)
     });
-  }
+  }, []);
+
+  const handleUpdateNotation = useCallback((lineIndex: number, notation: string) => {
+    const cur = sectionRef.current;
+    onChangeRef.current({
+      ...cur,
+      lines: cur.lines.map((l, i) => (i === lineIndex ? { ...l, notation } : l))
+    });
+  }, []);
+
+  const handleUpdateLine = useCallback((index: number, line: VerseLine) => {
+    const cur = sectionRef.current;
+    updateLines(cur.lines.map((current, lineIndex) => (lineIndex === index ? line : current)));
+  }, [updateLines]);
+
+  const handleMoveLine = useCallback((index: number, direction: -1 | 1) => {
+    const cur = sectionRef.current;
+    updateLines(moveItem(cur.lines, index, direction));
+  }, [updateLines]);
+
+  const handleDeleteLine = useCallback((index: number) => {
+    const cur = sectionRef.current;
+    updateLines(cur.lines.filter((_line, lineIndex) => lineIndex !== index));
+  }, [updateLines]);
 
   function addLine() {
     const lyricsByVerse = Object.fromEntries((verseNumbers.length ? verseNumbers : ["1"]).map((verse) => [verse, ""]));
@@ -327,10 +438,6 @@ function VerseSectionEditor({
         lyricsByVerse
       }
     ]);
-  }
-
-  function updateLine(index: number, line: VerseLine) {
-    updateLines(section.lines.map((current, lineIndex) => (lineIndex === index ? line : current)));
   }
 
   function addVerseNumber() {
@@ -389,50 +496,19 @@ function VerseSectionEditor({
       ) : (
         <div className="space-y-3">
           {section.lines.map((line, index) => (
-            <div key={`${section.id}-line-${index}`} className="rounded-md border border-zinc-200 p-3">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm font-semibold text-ink-950">Line {index + 1}</p>
-                <LineActions
-                  index={index}
-                  total={section.lines.length}
-                  onMove={(direction) => updateLines(moveItem(section.lines, index, direction))}
-                  onDelete={() => updateLines(section.lines.filter((_line, lineIndex) => lineIndex !== index))}
-                />
-              </div>
-              <div className="grid gap-3">
-                <Field label="Numbered notation">
-                  <TextInput
-                    value={line.notation ?? ""}
-                    onChange={(event) => updateLine(index, { ...line, notation: event.target.value })}
-                    placeholder="5 .6 5 5 6 | 1 .2 1 .6"
-                    disabled={isNotationReadOnly}
-                  />
-                </Field>
-                <div className="grid gap-3 md:grid-cols-2">
-                  {verseNumbers.map((verseNumber) => (
-                    <div key={verseNumber} className="space-y-2">
-                      <Field label={`Verse ${verseNumber} lyric`}>
-                        <TextInput
-                          value={line.lyricsByVerse?.[verseNumber] ?? ""}
-                          onChange={(event) => updateLine(index, {
-                            ...line,
-                            lyricsByVerse: {
-                              ...(line.lyricsByVerse ?? {}),
-                              [verseNumber]: event.target.value
-                            }
-                          })}
-                          placeholder={`Lyric for verse ${verseNumber}`}
-                        />
-                      </Field>
-                      <AlignmentStatus
-                        notation={line.notation}
-                        lyric={line.lyricsByVerse?.[verseNumber] ?? ""}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+            <VerseLineItem
+              key={`${section.id}-line-${index}`}
+              sectionId={section.id}
+              line={line}
+              index={index}
+              totalLines={section.lines.length}
+              verseNumbers={verseNumbers}
+              isNotationReadOnly={isNotationReadOnly}
+              onUpdateLine={handleUpdateLine}
+              onUpdateNotation={handleUpdateNotation}
+              onMoveLine={handleMoveLine}
+              onDeleteLine={handleDeleteLine}
+            />
           ))}
         </div>
       )}
@@ -449,6 +525,69 @@ function VerseSectionEditor({
   );
 }
 
+type RefrainLineItemProps = {
+  sectionId: string;
+  line: RefrainLine;
+  index: number;
+  totalLines: number;
+  isNotationReadOnly?: boolean;
+  onUpdateLine: (index: number, line: RefrainLine) => void;
+  onUpdateNotation: (index: number, notation: string) => void;
+  onMoveLine: (index: number, direction: -1 | 1) => void;
+  onDeleteLine: (index: number) => void;
+};
+
+const RefrainLineItem = memo(function RefrainLineItem({
+  sectionId,
+  line,
+  index,
+  totalLines,
+  isNotationReadOnly,
+  onUpdateLine,
+  onUpdateNotation,
+  onMoveLine,
+  onDeleteLine
+}: RefrainLineItemProps) {
+  const handleNotationChange = useCallback(
+    (notation: string) => {
+      onUpdateNotation(index, notation);
+    },
+    [index, onUpdateNotation]
+  );
+
+  return (
+    <div key={`${sectionId}-line-${index}`} className="rounded-md border border-zinc-200 p-3">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm font-semibold text-ink-950">Line {index + 1}</p>
+        <LineActions
+          index={index}
+          total={totalLines}
+          onMove={(direction) => onMoveLine(index, direction)}
+          onDelete={() => onDeleteLine(index)}
+        />
+      </div>
+      <div className="grid gap-3 md:grid-cols-2">
+        <Field label="Numbered notation">
+          <NotationInput
+            value={line.notation ?? ""}
+            onChange={handleNotationChange}
+            placeholder="1 .2 3 3 2 | 3...0"
+            isNotationReadOnly={isNotationReadOnly}
+          />
+        </Field>
+        <Field label="Refrain lyric">
+          <TextInput
+            value={line.lyric ?? ""}
+            onChange={(event) => onUpdateLine(index, { ...line, lyric: event.target.value })}
+            placeholder="Ka-sih sa-yang-Mu"
+          />
+        </Field>
+      </div>
+      <AlignmentStatus notation={line.notation} lyric={line.lyric} />
+    </div>
+  );
+});
+
 function RefrainSectionEditor({
   section,
   onChange,
@@ -458,16 +597,40 @@ function RefrainSectionEditor({
   onChange: (section: ArrangementSection) => void;
   isNotationReadOnly?: boolean;
 }) {
-  function updateLines(lines: RefrainLine[]) {
-    onChange({
-      ...section,
+  const sectionRef = useRef(section);
+  sectionRef.current = section;
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
+  const updateLines = useCallback((lines: RefrainLine[]) => {
+    onChangeRef.current({
+      ...sectionRef.current,
       lines: renumberLines(lines)
     });
-  }
+  }, []);
 
-  function updateLine(index: number, line: RefrainLine) {
-    updateLines(section.lines.map((current, lineIndex) => (lineIndex === index ? line : current)));
-  }
+  const handleUpdateNotation = useCallback((lineIndex: number, notation: string) => {
+    const cur = sectionRef.current;
+    onChangeRef.current({
+      ...cur,
+      lines: cur.lines.map((l, i) => (i === lineIndex ? { ...l, notation } : l))
+    });
+  }, []);
+
+  const handleUpdateLine = useCallback((index: number, line: RefrainLine) => {
+    const cur = sectionRef.current;
+    updateLines(cur.lines.map((current, lineIndex) => (lineIndex === index ? line : current)));
+  }, [updateLines]);
+
+  const handleMoveLine = useCallback((index: number, direction: -1 | 1) => {
+    const cur = sectionRef.current;
+    updateLines(moveItem(cur.lines, index, direction));
+  }, [updateLines]);
+
+  const handleDeleteLine = useCallback((index: number) => {
+    const cur = sectionRef.current;
+    updateLines(cur.lines.filter((_line, lineIndex) => lineIndex !== index));
+  }, [updateLines]);
 
   return (
     <div className="space-y-4">
@@ -478,35 +641,18 @@ function RefrainSectionEditor({
       ) : (
         <div className="space-y-3">
           {section.lines.map((line, index) => (
-            <div key={`${section.id}-line-${index}`} className="rounded-md border border-zinc-200 p-3">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm font-semibold text-ink-950">Line {index + 1}</p>
-                <LineActions
-                  index={index}
-                  total={section.lines.length}
-                  onMove={(direction) => updateLines(moveItem(section.lines, index, direction))}
-                  onDelete={() => updateLines(section.lines.filter((_line, lineIndex) => lineIndex !== index))}
-                />
-              </div>
-              <div className="grid gap-3 md:grid-cols-2">
-                <Field label="Numbered notation">
-                  <TextInput
-                    value={line.notation ?? ""}
-                    onChange={(event) => updateLine(index, { ...line, notation: event.target.value })}
-                    placeholder="1 .2 3 3 2 | 3...0"
-                    disabled={isNotationReadOnly}
-                  />
-                </Field>
-                <Field label="Refrain lyric">
-                  <TextInput
-                    value={line.lyric ?? ""}
-                    onChange={(event) => updateLine(index, { ...line, lyric: event.target.value })}
-                    placeholder="Ka-sih sa-yang-Mu"
-                  />
-                </Field>
-              </div>
-              <AlignmentStatus notation={line.notation} lyric={line.lyric} />
-            </div>
+            <RefrainLineItem
+              key={`${section.id}-line-${index}`}
+              sectionId={section.id}
+              line={line}
+              index={index}
+              totalLines={section.lines.length}
+              isNotationReadOnly={isNotationReadOnly}
+              onUpdateLine={handleUpdateLine}
+              onUpdateNotation={handleUpdateNotation}
+              onMoveLine={handleMoveLine}
+              onDeleteLine={handleDeleteLine}
+            />
           ))}
         </div>
       )}
