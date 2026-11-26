@@ -21,6 +21,7 @@ import { AlignedNotationLine } from "@/components/notation/AlignedNotationLine";
 import { AlignmentStatus } from "@/components/notation/AlignmentStatus";
 import { NotationInput } from "@/components/notation/NotationInput";
 import { NotationLine } from "@/components/notation/NotationLine";
+import { NotationCheatSheet } from "@/components/notation/NotationCheatSheet";
 import { SourceImageReference } from "@/components/source-images/source-image-reference";
 import { Button, EmptyState, Field, InlineError, LoadingState, TextArea, TextInput } from "@/components/ui";
 import { LiveSongPreviewPanel } from "./live-song-preview-panel";
@@ -46,6 +47,20 @@ export function ArrangementEditor({ songId }: ArrangementEditorProps) {
   const [pageError, setPageError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
+  const [isCheatSheetOpen, setIsCheatSheetOpen] = useState(false);
+  const cheatSheetRef = useRef<HTMLElement | null>(null);
+
+  const handleToggleCheatSheet = useCallback(() => {
+    setIsCheatSheetOpen((prev) => {
+      const next = !prev;
+      if (next) {
+        setTimeout(() => {
+          cheatSheetRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }, 50);
+      }
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     async function loadEditor() {
@@ -175,6 +190,18 @@ export function ArrangementEditor({ songId }: ArrangementEditorProps) {
             >
               Pratinjau
             </Link>
+            <Button
+              type="button"
+              onClick={handleToggleCheatSheet}
+              aria-expanded={isCheatSheetOpen}
+              aria-controls="notation-cheat-sheet"
+              title="Buka / tutup panduan syntax notasi angka"
+            >
+              <span className="mr-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-zinc-200 text-xs font-bold text-ink-700">
+                ?
+              </span>
+              Bantuan Notasi
+            </Button>
             <Button variant="primary" type="button" disabled={saving} onClick={() => void saveContent()}>
               {saving ? "Menyimpan..." : "Simpan Perubahan"}
             </Button>
@@ -239,14 +266,19 @@ export function ArrangementEditor({ songId }: ArrangementEditorProps) {
         </div>
 
         <aside className="space-y-4">
+          <NotationCheatSheet
+            ref={cheatSheetRef}
+            isOpen={isCheatSheetOpen}
+            onToggle={handleToggleCheatSheet}
+          />
+          <LiveSongPreviewPanel song={song} content={content} />
+          <SourceImageReference songId={songId} />
           <div className="rounded-md border border-zinc-200 bg-white p-4">
             <h2 className="text-base font-semibold text-ink-950">Save behavior</h2>
             <p className="mt-2 text-sm leading-6 text-ink-500">
               Changes stay local until Save arrangement is pressed. The full structured content document is sent to the backend.
             </p>
           </div>
-          <LiveSongPreviewPanel song={song} content={content} />
-          <SourceImageReference songId={songId} />
         </aside>
       </div>
     </section>
@@ -498,8 +530,6 @@ function VerseSectionEditor({
         </div>
       </div>
 
-      <NotationSyntaxHint />
-
       {section.lines.length === 0 ? (
         <EmptyState title="No verse lines" description="Add a line to enter notation and verse lyrics." />
       ) : (
@@ -648,8 +678,6 @@ function RefrainSectionEditor({
 
   return (
     <div className="space-y-4">
-      <NotationSyntaxHint />
-
       {section.lines.length === 0 ? (
         <EmptyState title="No refrain lines" description="Add a refrain line to enter notation and lyric text." />
       ) : (
@@ -783,14 +811,6 @@ function LineActions({
       <Button type="button" onClick={() => onMove(1)} disabled={index === total - 1}>Move line down</Button>
       <Button type="button" variant="danger" onClick={onDelete}>Delete line</Button>
     </div>
-  );
-}
-
-function NotationSyntaxHint() {
-  return (
-    <p className="rounded-md bg-zinc-50 px-3 py-2 text-xs leading-5 text-ink-500">
-      Examples: `1&apos;` high, `1,` low, `[4 5]` beam, `(4 5)` slur, `([4 5 6])` beam + slur, `[(4 5) 6]` partial slur.
-    </p>
   );
 }
 

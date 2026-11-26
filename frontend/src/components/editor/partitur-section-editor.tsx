@@ -396,8 +396,6 @@ export function PartiturSectionEditor({
         </div>
       </div>
 
-      <NotationSyntaxHint />
-
       {section.lines.length === 0 ? (
         <EmptyState title="Belum ada baris partitur" description="Tambahkan baris untuk memasukkan notasi dan lirik." />
       ) : (
@@ -453,14 +451,6 @@ function collectPartiturVerseNumbers(section: PartiturSection): string[] {
 
 function isPositiveVerseNumber(value: string) {
   return /^[1-9][0-9]*$/.test(value);
-}
-
-function NotationSyntaxHint() {
-  return (
-    <p className="rounded-md bg-zinc-50 px-3 py-2 text-xs leading-5 text-ink-500">
-      Petunjuk: `1&apos;` tinggi, `1,` rendah, `[4 5]` bendera, `(4 5)` garis lengkung (slur), `([4 5 6])` bendera + lengkung. Gunakan `|` untuk batas birama.
-    </p>
-  );
 }
 
 function LineActions({
