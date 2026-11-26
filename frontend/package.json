@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test:notation": "rm -rf .tmp-tests && tsc -p tsconfig.notation-tests.json && node --test .tmp-tests/src/lib/notation-parser.test.js .tmp-tests/src/lib/notation-input-helpers.test.js .tmp-tests/src/lib/notation-highlight.test.js && rm -rf .tmp-tests"
+    "test:notation": "rm -rf .tmp-tests && tsc -p tsconfig.notation-tests.json && node --test .tmp-tests/src/lib/notation-parser.test.js .tmp-tests/src/lib/notation-input-helpers.test.js .tmp-tests/src/lib/notation-highlight.test.js .tmp-tests/src/lib/notation-syntax-reference.test.js && rm -rf .tmp-tests"
   },
   "dependencies": {
     "next": "^15.0.0",

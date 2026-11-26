@@ -19,6 +19,8 @@
     "src/lib/notation-input-helpers.ts",
     "src/lib/notation-input-helpers.test.ts",
     "src/lib/notation-highlight.ts",
-    "src/lib/notation-highlight.test.ts"
+    "src/lib/notation-highlight.test.ts",
+    "src/lib/notation-syntax-reference.ts",
+    "src/lib/notation-syntax-reference.test.ts"
   ]
 }
