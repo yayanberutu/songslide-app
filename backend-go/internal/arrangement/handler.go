@@ -188,7 +188,7 @@ func MergeNotation(targetJson []byte, sourceJson []byte) []byte {
 
 			// Clear source lyrics so they don't bleed into the target song
 			delete(sLine, "lyric")
-			
+
 			if sLyrics, ok := sLine["lyricsByVerse"].(map[string]interface{}); ok {
 				emptyLyrics := make(map[string]interface{})
 				for k := range sLyrics {

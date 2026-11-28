@@ -4,18 +4,19 @@ import (
 	"log"
 
 	"github.com/gin-gonic/gin"
+	"github.com/yayanberutu/songslide/backend-go/internal/analytics"
 	"github.com/yayanberutu/songslide/backend-go/internal/arrangement"
+	"github.com/yayanberutu/songslide/backend-go/internal/auth"
 	"github.com/yayanberutu/songslide/backend-go/internal/config"
 	"github.com/yayanberutu/songslide/backend-go/internal/db"
 	"github.com/yayanberutu/songslide/backend-go/internal/exporting"
+	"github.com/yayanberutu/songslide/backend-go/internal/middleware"
+	"github.com/yayanberutu/songslide/backend-go/internal/partiturimport"
 	"github.com/yayanberutu/songslide/backend-go/internal/song"
 	"github.com/yayanberutu/songslide/backend-go/internal/songbook"
 	"github.com/yayanberutu/songslide/backend-go/internal/sourceimage"
 	"github.com/yayanberutu/songslide/backend-go/internal/storage"
 	"github.com/yayanberutu/songslide/backend-go/internal/user"
-	"github.com/yayanberutu/songslide/backend-go/internal/analytics"
-	"github.com/yayanberutu/songslide/backend-go/internal/auth"
-	"github.com/yayanberutu/songslide/backend-go/internal/middleware"
 )
 
 func main() {
@@ -70,6 +71,9 @@ func main() {
 
 		exportHandler := exporting.NewHandler(db.DB, fileStorage, exportClient)
 		exportHandler.RegisterRoutes(publicApi, protectedApi)
+
+		partiturImportHandler := partiturimport.NewHandler(db.DB, fileStorage)
+		partiturImportHandler.RegisterRoutes(protectedApi)
 	}
 
 	adminApi := r.Group("/api")

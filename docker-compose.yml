@@ -50,6 +50,7 @@ services:
       - POSTGRES_PASSWORD=change-me-local-only
       - DATABASE_URL=postgres://songslide:change-me-local-only@postgres:5432/songslide?sslmode=disable
       - EXPORT_SERVICE_URL=http://export-service:3001
+      - OCR_SERVICE_URL=http://ocr-service:8001
       - STORAGE_ROOT=/app/storage
       - MAX_SOURCE_IMAGE_SIZE_MB=10
     volumes:

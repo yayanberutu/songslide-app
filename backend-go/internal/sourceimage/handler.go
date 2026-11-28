@@ -199,7 +199,7 @@ func (h *Handler) DownloadImage(c *gin.Context) {
 	// Content-Type could be inferred from DB if we queried it, but usually standard http fileserving works
 	// For simplicity, we just serve it directly using Gin's DataFromReader, or let http.ServeContent handle it
 	// if we had FileSystemStorage return an *os.File. Since it's io.ReadCloser, we can use DataFromReader
-	
+
 	// Better to use c.File() since it's a local file and handles Range requests automatically
 	path, resolveErr := h.store.ResolveStorageKeyForDownload(storageKey)
 	if resolveErr != nil {

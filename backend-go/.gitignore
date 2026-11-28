@@ -1,4 +1,4 @@
 /backend-go
-api
+/api
 .env
-storage/
+/storage/

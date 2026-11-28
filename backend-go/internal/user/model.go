@@ -4,8 +4,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 )
 
 type Role string
@@ -45,8 +45,8 @@ func HashPassword(password string) (string, error) {
 }
 
 type UserResponse struct {
-	ID        uuid.UUID `json:"id"`
-	Username  string    `json:"username"`
+	ID          uuid.UUID  `json:"id"`
+	Username    string     `json:"username"`
 	Role        string     `json:"role"`
 	LoginCount  int        `json:"loginCount"`
 	LastLoginAt *time.Time `json:"lastLoginAt"`
@@ -56,8 +56,8 @@ type UserResponse struct {
 
 func (u *User) ToResponse() UserResponse {
 	return UserResponse{
-		ID:        u.ID,
-		Username:  u.Username,
+		ID:          u.ID,
+		Username:    u.Username,
 		Role:        string(u.Role),
 		LoginCount:  u.LoginCount,
 		LastLoginAt: u.LastLoginAt,

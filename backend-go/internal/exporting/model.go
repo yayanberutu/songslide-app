@@ -82,19 +82,19 @@ func (e *SongExport) BeforeCreate(tx *gorm.DB) (err error) {
 }
 
 type SongExportResponse struct {
-	ID                 uuid.UUID       `json:"id"`
-	SongId             uuid.UUID       `json:"songId"`
-	ArrangementId      uuid.UUID       `json:"arrangementId"`
-	Format             string          `json:"outputFormat"`
-	Status             string          `json:"status"`
-	ErrorMessage       *string         `json:"errorMessage"`
-	SelectedVerses     []string        `json:"selectedVerses"`
-	RefrainMode        string          `json:"refrainMode"`
-	StorageKey         *string         `json:"storageKey"`
-	DownloadUrl        *string         `json:"downloadUrl"`
-	OptionsJson        json.RawMessage `json:"optionsJson"`
-	CreatedAt          time.Time       `json:"createdAt"`
-	UpdatedAt          time.Time       `json:"updatedAt"`
+	ID             uuid.UUID       `json:"id"`
+	SongId         uuid.UUID       `json:"songId"`
+	ArrangementId  uuid.UUID       `json:"arrangementId"`
+	Format         string          `json:"outputFormat"`
+	Status         string          `json:"status"`
+	ErrorMessage   *string         `json:"errorMessage"`
+	SelectedVerses []string        `json:"selectedVerses"`
+	RefrainMode    string          `json:"refrainMode"`
+	StorageKey     *string         `json:"storageKey"`
+	DownloadUrl    *string         `json:"downloadUrl"`
+	OptionsJson    json.RawMessage `json:"optionsJson"`
+	CreatedAt      time.Time       `json:"createdAt"`
+	UpdatedAt      time.Time       `json:"updatedAt"`
 }
 
 func (e *SongExport) ToResponse() SongExportResponse {
@@ -110,19 +110,19 @@ func (e *SongExport) ToResponse() SongExportResponse {
 	}
 
 	return SongExportResponse{
-		ID:                 e.ID,
-		SongId:             e.SongID,
-		ArrangementId:      e.ArrangementID,
-		Format:             e.Format,
-		Status:             e.Status,
-		ErrorMessage:       e.ErrorMessage,
-		SelectedVerses:     verses,
-		RefrainMode:        e.RefrainMode,
-		StorageKey:         e.StorageKey,
-		DownloadUrl:        downloadUrl,
-		OptionsJson:        e.OptionsJson,
-		CreatedAt:          e.CreatedAt,
-		UpdatedAt:          e.UpdatedAt,
+		ID:             e.ID,
+		SongId:         e.SongID,
+		ArrangementId:  e.ArrangementID,
+		Format:         e.Format,
+		Status:         e.Status,
+		ErrorMessage:   e.ErrorMessage,
+		SelectedVerses: verses,
+		RefrainMode:    e.RefrainMode,
+		StorageKey:     e.StorageKey,
+		DownloadUrl:    downloadUrl,
+		OptionsJson:    e.OptionsJson,
+		CreatedAt:      e.CreatedAt,
+		UpdatedAt:      e.UpdatedAt,
 	}
 }
 

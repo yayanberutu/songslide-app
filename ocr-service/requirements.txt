@@ -2,3 +2,8 @@ fastapi>=0.115,<1.0
 uvicorn>=0.30,<1.0
 pytest>=8,<9
 httpx>=0.27,<1.0
+python-multipart>=0.0.9
+Pillow>=10.0.0
+pypdfium2>=4.0.0
+music21>=9.0.0
+# Note: For production deep-learning OMR, install oemer (and its torch/onnx dependencies)

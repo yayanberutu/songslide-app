@@ -1,6 +1,6 @@
 spring:
   application:
-    name: songslide-backend
+  name: songslide-backend
   profiles:
     default: local
 
@@ -23,6 +23,8 @@ management:
 songslide:
   export-service:
     url: ${EXPORT_SERVICE_URL:http://localhost:3002}
+  ocr-service:
+    url: ${OCR_SERVICE_URL:http://localhost:8001}
   source-images:
     max-size-mb: ${MAX_SOURCE_IMAGE_SIZE_MB:10}
   storage:
