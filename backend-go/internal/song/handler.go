@@ -67,11 +67,11 @@ func (h *Handler) Create(c *gin.Context) {
 	}
 
 	song := Song{
-		SongBookID:    book.ID,
-		SongNumber:    req.SongNumber,
-		Title:         req.Title,
-		KeySignature:  ptrStr(req.DefaultKey),
-		TimeSignature: ptrStr(req.TimeSignature),
+		SongBookID:           book.ID,
+		SongNumber:           req.SongNumber,
+		Title:                req.Title,
+		KeySignature:         ptrStr(req.DefaultKey),
+		TimeSignature:        ptrStr(req.TimeSignature),
 		TempoBpm:             req.Tempo,
 		Type:                 songType,
 		Author:               ptrStr(req.AuthorText),
@@ -93,15 +93,15 @@ func (h *Handler) List(c *gin.Context) {
 	bookCode := c.Query("bookCode")
 	title := c.Query("title")
 	songNumber := c.Query("songNumber")
-	
+
 	pageStr := c.Query("page")
 	limitStr := c.Query("limit")
-	
+
 	page := 1
 	if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
 		page = p
 	}
-	
+
 	limit := 50
 	if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
 		limit = l

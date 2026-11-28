@@ -17,6 +17,7 @@ public class LocalFileSystemStorageService implements BinaryStorageService {
     private static final int MAX_STORAGE_KEY_LENGTH = 512;
     private static final Pattern SAFE_SEGMENT_PATTERN = Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]*");
     private static final Set<String> SOURCE_IMAGE_EXTENSIONS = Set.of("jpg", "jpeg", "png", "webp");
+    private static final Set<String> PARTITUR_IMPORT_EXTENSIONS = Set.of("jpg", "jpeg", "png", "webp", "pdf");
     private static final Set<String> EXPORT_EXTENSIONS = Set.of("png", "pptx", "zip");
 
     private final Path root;
@@ -126,6 +127,7 @@ public class LocalFileSystemStorageService implements BinaryStorageService {
         String extension = getExtension(fileName);
         boolean supported = switch (namespace) {
             case "source-images" -> SOURCE_IMAGE_EXTENSIONS.contains(extension);
+            case "partitur-imports" -> PARTITUR_IMPORT_EXTENSIONS.contains(extension);
             case "exports" -> EXPORT_EXTENSIONS.contains(extension);
             default -> false;
         };

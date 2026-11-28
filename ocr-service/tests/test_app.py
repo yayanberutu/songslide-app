@@ -12,7 +12,9 @@ def test_health_reports_ocr_disabled_by_default(monkeypatch):
     response = client.get("/health")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "OK", "ocrEnabled": False}
+    assert response.json()["status"] == "OK"
+    assert response.json()["ocrEnabled"] is False
+    assert "omrAvailable" in response.json()
 
 
 def test_extract_returns_disabled_response_by_default(monkeypatch):

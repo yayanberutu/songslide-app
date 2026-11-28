@@ -9,14 +9,14 @@ import (
 )
 
 type Song struct {
-	ID            uuid.UUID         `gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
-	SongBookID    uuid.UUID         `gorm:"type:uuid;not null"`
-	SongBook      songbook.SongBook `gorm:"foreignKey:SongBookID"`
-	SongNumber    string            `gorm:"type:varchar(32);not null"`
-	Title         string            `gorm:"type:varchar(255);not null"`
-	KeySignature  *string           `gorm:"type:varchar(32)"`
-	TimeSignature *string           `gorm:"type:varchar(32)"`
-	TempoBpm      *int              `gorm:""`
+	ID                   uuid.UUID         `gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
+	SongBookID           uuid.UUID         `gorm:"type:uuid;not null"`
+	SongBook             songbook.SongBook `gorm:"foreignKey:SongBookID"`
+	SongNumber           string            `gorm:"type:varchar(32);not null"`
+	Title                string            `gorm:"type:varchar(255);not null"`
+	KeySignature         *string           `gorm:"type:varchar(32)"`
+	TimeSignature        *string           `gorm:"type:varchar(32)"`
+	TempoBpm             *int              `gorm:""`
 	Author               *string           `gorm:"type:text"`
 	Notes                *string           `gorm:"type:text"`
 	Type                 string            `gorm:"type:varchar(32);not null;default:'LEAD_SHEET'"`
@@ -93,8 +93,8 @@ func (s *Song) ToResponse() SongResponse {
 			Code: s.SongBook.Code,
 			Name: s.SongBook.Name,
 		},
-		CreatedAt: s.CreatedAt,
-		UpdatedAt: s.UpdatedAt,
+		CreatedAt:            s.CreatedAt,
+		UpdatedAt:            s.UpdatedAt,
 		NotationSourceSongID: s.NotationSourceSongID,
 	}
 

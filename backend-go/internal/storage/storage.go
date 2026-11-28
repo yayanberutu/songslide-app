@@ -136,6 +136,11 @@ func (s *FileSystemStorage) resolveStorageKey(storageKey string) (string, error)
 		case "jpg", "jpeg", "png", "webp":
 			supported = true
 		}
+	} else if ns == "partitur-imports" {
+		switch ext {
+		case "jpg", "jpeg", "png", "webp", "pdf":
+			supported = true
+		}
 	} else if ns == "exports" {
 		switch ext {
 		case "png", "pptx", "zip":

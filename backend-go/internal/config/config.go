@@ -9,13 +9,14 @@ import (
 )
 
 type Config struct {
-	Env                        string
-	Port                       string
-	DatabaseURL                string
-	ExportServiceURL           string
-	StorageRoot                string
-	MaxSourceImageSizeMB       int64
-	BackendCORSAllowedOrigins  string
+	Env                       string
+	Port                      string
+	DatabaseURL               string
+	ExportServiceURL          string
+	OcrServiceURL             string
+	StorageRoot               string
+	MaxSourceImageSizeMB      int64
+	BackendCORSAllowedOrigins string
 }
 
 var AppConfig *Config
@@ -43,6 +44,7 @@ func LoadConfig() {
 		Port:                      getEnv("BACKEND_PORT", "8080"),
 		DatabaseURL:               dbUrl,
 		ExportServiceURL:          getEnv("EXPORT_SERVICE_URL", "http://localhost:3001"),
+		OcrServiceURL:             getEnv("OCR_SERVICE_URL", "http://localhost:8001"),
 		StorageRoot:               getEnv("STORAGE_ROOT", "storage"),
 		MaxSourceImageSizeMB:      getEnvAsInt("MAX_SOURCE_IMAGE_SIZE_MB", 10),
 		BackendCORSAllowedOrigins: getEnv("BACKEND_CORS_ALLOWED_ORIGINS", "http://localhost:3000"),

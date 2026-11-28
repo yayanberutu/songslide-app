@@ -8,6 +8,8 @@ import {
   type ArrangementContentJson,
   type ArrangementSection,
   type ArrangementSectionType,
+  type PartiturLine,
+  type PartiturSection,
   type RefrainLine,
   type RefrainSection,
   type SongArrangement,
@@ -25,6 +27,7 @@ import { NotationCheatSheet } from "@/components/notation/NotationCheatSheet";
 import { SourceImageReference } from "@/components/source-images/source-image-reference";
 import { Button, EmptyState, Field, InlineError, LoadingState, TextArea, TextInput } from "@/components/ui";
 import { LiveSongPreviewPanel } from "./live-song-preview-panel";
+import { PartiturImportModal } from "./partitur-import-modal";
 import { PartiturSectionEditor } from "./partitur-section-editor";
 
 type ArrangementEditorProps = {
@@ -48,6 +51,8 @@ export function ArrangementEditor({ songId }: ArrangementEditorProps) {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
   const [isCheatSheetOpen, setIsCheatSheetOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importNotification, setImportNotification] = useState<string | null>(null);
   const cheatSheetRef = useRef<HTMLElement | null>(null);
 
   const handleToggleCheatSheet = useCallback(() => {
@@ -60,6 +65,58 @@ export function ArrangementEditor({ songId }: ArrangementEditorProps) {
       }
       return next;
     });
+  }, []);
+
+  const handleApplyDraft = useCallback((importedLines: string[], voiceId: string, detectedKey: string) => {
+    setContent((current) => {
+      const partiturIndex = current.sections.findIndex((s) => s.type === "PARTITUR");
+      const mappedLines: PartiturLine[] = importedLines.map((notation, i) => ({
+        lineOrder: i + 1,
+        voices: {
+          [voiceId]: {
+            notation,
+            lyric: "",
+            lyricsByVerse: {}
+          }
+        }
+      }));
+
+      if (partiturIndex >= 0) {
+        const existingSection = current.sections[partiturIndex] as PartiturSection;
+        const enabledVoices = existingSection.enabledVoices.includes(voiceId)
+          ? existingSection.enabledVoices
+          : [...existingSection.enabledVoices, voiceId];
+
+        const updatedSection: PartiturSection = {
+          ...existingSection,
+          enabledVoices,
+          lines: mappedLines
+        };
+
+        return {
+          ...current,
+          sections: current.sections.map((sec, idx) => (idx === partiturIndex ? updatedSection : sec))
+        };
+      } else {
+        const newSection: PartiturSection = {
+          id: `partitur-${Date.now()}`,
+          type: "PARTITUR",
+          label: "Partitur (Hasil Import OMR)",
+          enabledVoices: [voiceId],
+          lines: mappedLines
+        };
+
+        return {
+          ...current,
+          sections: [...current.sections, newSection]
+        };
+      }
+    });
+
+    setSavedMessage(null);
+    setImportNotification(
+      `Hasil import OMR (${detectedKey}) berhasil diterapkan sebagai draft pada suara ${voiceId}. Silakan periksa notasi lalu klik 'Simpan Perubahan'.`
+    );
   }, []);
 
   useEffect(() => {
@@ -192,6 +249,14 @@ export function ArrangementEditor({ songId }: ArrangementEditorProps) {
             </Link>
             <Button
               type="button"
+              onClick={() => setIsImportModalOpen(true)}
+              title="Import partitur notasi balok via OMR"
+            >
+              <span className="mr-1.5">🎼</span>
+              Import Notasi Balok
+            </Button>
+            <Button
+              type="button"
               onClick={handleToggleCheatSheet}
               aria-expanded={isCheatSheetOpen}
               aria-controls="notation-cheat-sheet"
@@ -246,6 +311,22 @@ export function ArrangementEditor({ songId }: ArrangementEditorProps) {
               {savedMessage}
             </div>
           ) : null}
+          {importNotification ? (
+            <div className="flex items-start justify-between rounded-md border border-indigo-200 bg-indigo-50 px-3.5 py-3 text-sm text-indigo-950">
+              <div className="flex items-start gap-2">
+                <span className="text-base">🎼</span>
+                <span className="leading-snug">{importNotification}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setImportNotification(null)}
+                className="ml-3 font-bold text-indigo-400 hover:text-indigo-700"
+                aria-label="Tutup notifikasi import"
+              >
+                ✕
+              </button>
+            </div>
+          ) : null}
 
           {content.sections.length === 0 ? (
             <EmptyState title="No sections yet" description="Add a verse, refrain, or text-only verse section." />
@@ -281,6 +362,13 @@ export function ArrangementEditor({ songId }: ArrangementEditorProps) {
           </div>
         </aside>
       </div>
+
+      <PartiturImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        songId={songId}
+        onApplyDraft={handleApplyDraft}
+      />
     </section>
   );
 }
